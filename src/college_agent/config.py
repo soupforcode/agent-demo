@@ -21,6 +21,7 @@ defaults that you probably don't share.
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 
@@ -30,6 +31,17 @@ from dotenv import load_dotenv
 # Load .env from the repo root, wherever we're invoked from.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(REPO_ROOT / ".env")
+
+# The Google SDK logs a scary-looking warning the first time anything reads
+# `.text` on a response that contains tool calls:
+#
+#   "Warning: there are non-text parts in the response: ['function_call'] ..."
+#
+# Agno reads `.text`, so this fires on the first tool-calling turn of every run.
+# It is harmless — Agno reads the function calls correctly from `.parts` — but
+# it appears at exactly the moment a student's first agent works, which makes
+# a success look like a failure. Silenced here rather than explained ten times.
+logging.getLogger("google_genai.types").setLevel(logging.ERROR)
 
 # --------------------------------------------------------------------------
 # Model choice
