@@ -10,10 +10,32 @@
 # Everything runs through .venv, so you never have to remember to activate it.
 
 .DEFAULT_GOAL := help
-PY := .venv/bin/python
+
+# Linux and macOS put it in bin/, Windows (Git Bash) in Scripts/. Pick whichever
+# exists, and fall back to the Unix path so the error message below reads right.
+PY := $(firstword $(wildcard .venv/bin/python .venv/Scripts/python.exe) .venv/bin/python)
 UV := $(shell command -v uv 2> /dev/null)
 
-.PHONY: help setup preflight lab1 lab2 lab3 lab4 test eval serve docker docker-build clean lint format check
+.PHONY: help setup preflight lab1 lab2 lab3 lab4 test test-live eval eval-json serve docker docker-build clean lint format check venv
+
+# Guard for every target that needs the virtualenv.
+#
+# Without this you get `make: .venv/bin/python: No such file or directory`,
+# which is technically accurate and completely useless if you've just cloned
+# the repo and don't yet know `make setup` is a thing.
+venv:
+	@test -x "$(PY)" || { \
+	  echo ""; \
+	  echo "  No Python environment found at .venv/"; \
+	  echo ""; \
+	  echo "  You haven't run setup yet. Do this first:"; \
+	  echo ""; \
+	  echo "      make setup"; \
+	  echo ""; \
+	  echo "  If that fails, you probably need uv:"; \
+	  echo "      curl -LsSf https://astral.sh/uv/install.sh | sh"; \
+	  echo ""; \
+	  exit 1; }
 
 help:
 	@echo ""
@@ -49,54 +71,57 @@ ifndef UV
 endif
 	uv venv .venv --python 3.12
 	uv pip install -e ".[dev]"
-	@$(PY) -m college_agent.data.seed
+	@# Resolved here rather than using $(PY), which was evaluated before the
+	@# virtualenv existed — and lives in Scripts/ on Windows, bin/ elsewhere.
+	@VENV_PY=$$(test -x .venv/bin/python && echo .venv/bin/python || echo .venv/Scripts/python.exe); \
+	 "$$VENV_PY" -m college_agent.data.seed
 	@echo ""
 	@echo "  Installed. Next:"
 	@echo "    cp .env.example .env     # then paste your key into it"
 	@echo "    make preflight"
 	@echo ""
 
-preflight:
+preflight: venv
 	@$(PY) scripts/preflight.py
 
-lab1:
+lab1: venv
 	@$(PY) labs/lab1_fundamentals/01_raw_loop.py
 	@echo ""
 	@echo "  ── now the same thing with Agno ──"
 	@echo ""
 	@$(PY) labs/lab1_fundamentals/02_first_agent.py
 
-lab2:
+lab2: venv
 	@$(PY) labs/lab2_workflow/01_structured_triage.py
 	@echo ""
 	@echo "  ── now with a router in front of specialists ──"
 	@echo ""
 	@$(PY) labs/lab2_workflow/02_routing_team.py
 
-lab3:
+lab3: venv
 	@$(PY) labs/lab3_eval/01_reliability.py
 	@echo ""
 	@$(PY) labs/lab3_eval/02_accuracy.py
 	@echo ""
 	@$(PY) labs/lab3_eval/03_break_it.py
 
-lab4:
+lab4: venv
 	@$(PY) labs/lab4_deploy/01_call_the_api.py
 
-test:
+test: venv
 	@$(PY) -m pytest -m "not live"
 
-test-live:
+test-live: venv
 	@$(PY) -m pytest
 
-eval:
+eval: venv
 	@$(PY) evals/suite.py
 
-eval-json:
+eval-json: venv
 	@mkdir -p evals/results
 	@$(PY) evals/suite.py --json-output evals/results/latest.json
 
-serve:
+serve: venv
 	@$(PY) -m college_agent.api
 
 docker-build:
@@ -105,10 +130,10 @@ docker-build:
 docker: docker-build
 	docker run --rm -p 8000:8000 --env-file .env college-triage:latest
 
-lint:
+lint: venv
 	@$(PY) -m ruff check src labs evals tests scripts
 
-format:
+format: venv
 	@$(PY) -m ruff format src labs evals tests scripts
 	@$(PY) -m ruff check --fix src labs evals tests scripts
 
