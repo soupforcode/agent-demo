@@ -1,0 +1,75 @@
+[project]
+name = "college-admin-agent"
+version = "0.1.0"
+description = "Architecting Autonomous Intelligence — a 4-hour workshop building a college administration triage agent with Agno and Gemini"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+
+dependencies = [
+    # Pinned exactly. Agno ships every 2-3 days and v2 broke every v1 API.
+    # If you unpin this, the labs will drift out from under you.
+    "agno==2.9.0",
+    # The CURRENT Google SDK. `google-generativeai` is DEAD — its repo is
+    # literally renamed `deprecated-generative-ai-python`. If you see
+    # `import google.generativeai`, that code is from a stale tutorial.
+    "google-genai>=1.52.0",
+    # OpenAI is the alternative provider. Base dependency rather than an extra:
+    # "you picked openai but did not install the extra" is a classroom support
+    # question nobody needs, and the package is small.
+    "openai>=1.60.0",
+    "pydantic>=2.12.5",
+    "python-dotenv>=1.0.1",
+    # agno[os] deps — the FastAPI serving layer used in module 4.
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.18",
+    "sqlalchemy>=2.0.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.27.0",
+    "ruff>=0.7.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/college_agent"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = [
+    "E501",  # line length is handled by the formatter
+    "B008",  # FastAPI's Depends() in defaults is idiomatic
+]
+
+[tool.ruff.lint.isort]
+# `cases` and `suite` live in evals/ and are imported by path, so ruff can't
+# infer they're ours.
+known-first-party = ["college_agent", "cases", "suite"]
+
+[tool.ruff.lint.per-file-ignores]
+# The labs and eval scripts insert the repo onto sys.path before importing,
+# so their imports genuinely cannot sit at the top of the file.
+"labs/**" = ["E402"]
+"evals/**" = ["E402"]
+"scripts/**" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q --strict-markers"
+asyncio_mode = "auto"
+markers = [
+    "live: requires a real GOOGLE_API_KEY and makes network calls (deselect with '-m \"not live\"')",
+]

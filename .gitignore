@@ -1,0 +1,34 @@
+# Secrets — never commit your API key
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Generated at runtime
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+tmp/
+.cache/
+.agent_cache/
+agno.db
+
+# Tooling
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Eval output
+evals/results/*.json
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store

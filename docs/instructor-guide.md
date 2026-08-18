@@ -1,0 +1,313 @@
+# Instructor Guide
+
+Everything you need to run this, including what breaks and what to do about it.
+
+---
+
+## Before the day
+
+### A week out
+
+- [ ] Send students [docs/00-setup.md](00-setup.md). Insist on `make preflight`
+      passing **before** they arrive. Ask for a screenshot — otherwise a third
+      of the room won't do it.
+- [ ] Stress: **each student creates their own key.** Limits are per Google
+      Cloud project. Thirty students on one key get ~16 requests each and the
+      lab dies in ten minutes.
+
+### A few days out
+
+- [ ] **Check the actual rate limits.** Google no longer publishes free-tier
+      RPM/RPD. Sign in at <https://aistudio.google.com/rate-limit> and read
+      your own numbers. This is the figure that determines whether the lab
+      survives, and nobody can tell you it but that dashboard.
+- [ ] **Run the whole thing yourself with a real key**, end to end:
+      ```bash
+      make preflight && make test && make lab1 && make lab2 && make lab3 && make lab4 && make eval
+      ```
+      In particular confirm Gemini accepts `TriageResult` alongside tools —
+      that combination has a history of breaking, and the fallbacks are
+      `use_json_mode=True` or `parser_model=`.
+- [ ] Get **one paid key** of your own (a $10 prepay covers a classroom
+      easily). Hold it in reserve for students who exhaust their quota.
+- [ ] If you want CI green in front of the room, add `GOOGLE_API_KEY` as a
+      repository secret. (`OPENAI_API_KEY` works too — the eval job takes
+      either, and prefers google because it's the free one.)
+
+### Scheduling
+
+**Prefer an afternoon slot.** Free-tier daily quota resets at midnight US
+Pacific — about **12:30 PM IST**. An afternoon lab starts on a fresh quota; a
+morning lab shares with the previous evening's experimenting.
+
+---
+
+## Two ways to run it
+
+### Interleaved (recommended)
+
+| | |
+|---|---|
+| 0:00 | Module 1 theory |
+| 0:30 | **Lab 1** |
+| 1:00 | Module 2 theory |
+| 1:30 | **Lab 2** |
+| 2:00 | *break* |
+| 2:10 | Module 3 theory |
+| 2:40 | **Lab 3** |
+| 3:10 | Module 4 theory |
+| 3:40 | **Lab 4** |
+
+Retention is much better, and you never have a two-hour lecture in which you
+lose the room.
+
+### Block (2h theory, then 2h lab)
+
+| | |
+|---|---|
+| 0:00 | Modules 1–2 theory |
+| 1:00 | Modules 3–4 theory |
+| 2:00 | *break* |
+| 2:10 | Labs 1–2 |
+| 3:10 | Labs 3–4 |
+
+Use this if theory and lab are separate slots or rooms. Warn students that
+module 3 will make more sense once they've built something in lab 2.
+
+---
+
+## The hands-on half: the step branches
+
+The second two hours is a branch series. Students walk it with `git switch`,
+and there is a working, tested state at every point — nobody can fall
+irrecoverably behind.
+
+| # | Branch | Adds | Min |
+|---|---|---|---|
+| 1 | `step-1-agent` | model + instructions. No tools, no schema. | 10 |
+| 2 | `step-2-structured` | `output_schema=TriageResult` | 12 |
+| 3 | `step-3-tools` | six tools over the college DB | 25 |
+| 4 | `step-4-guardrails` | `pre_hooks` — PII, third-party refusal | 15 *flex* |
+| 5 | `step-5-team` | `TeamMode.route` + specialists | 15 *flex* |
+| 6 | `step-6-evals` | golden cases, reliability, break-it | 25 |
+| 7 | `step-7-deploy` | FastAPI, AgentOS, Docker, CI | 20 |
+
+**Core path (1, 2, 3, 6, 7) is ~92 minutes**, leaving nearly half an hour of
+slack. All seven is 122 — none. Cut steps 4 and 5 live if you're behind.
+
+### The move that makes it land
+
+```bash
+git diff step-2-structured step-3-tools -- src
+```
+
+The diff between two branches *is* the lesson — one concept, no noise. Put it
+on the projector rather than describing the change. `make diff` does the same
+thing for whichever step you're on, and `make step` prints where you are and
+what to run next.
+
+### Step 2 is the one to slow down for
+
+The order looks wrong on purpose. At step 2 the agent has a strict schema but
+no tools, so it returns a perfectly validated `TriageResult` that is entirely
+**invented** — right shape, wrong department, confident reasoning, no evidence.
+
+Run it twice in front of the room and let them see it disagree with itself.
+Then ask what the schema actually bought. Structure gives you parseability, not
+truth — and it makes a wrong answer look considerably more authoritative than
+prose did. Step 3 fixes it, and the contrast is the whole point.
+
+Don't rush past it to get to the tools.
+
+### What `labs/` is for now
+
+The lab scripts are **your demo material for the theory half** — run them on the
+projector while teaching each module. They are not student homework any more;
+the branch series is. Running both would have them competing for the same two
+hours.
+
+### If a student is lost
+
+```bash
+git switch step-3-tools    # a clean, working copy of any step
+git checkout .             # throw away local edits, keep the step
+git switch main            # the finished app
+```
+
+Every branch passes `make test` with no API key, so "is my checkout broken?"
+always has a fast answer.
+
+---
+
+## Checkpoints
+
+Stop and check the room at each of these. Don't let a broken setup compound.
+
+| When | Check | If it fails |
+|---|---|---|
+| **0:15** | `make preflight` passes for everyone | Send them to [00-setup.md](00-setup.md). Pair them with a neighbour whose setup works — do not debug one laptop while 29 people wait. |
+| **After lab 1** | Everyone saw the raw loop print tool calls | If quota is the issue, they can read the output in the docs and move on. The concept matters more than their own run. |
+| **After lab 2** | Everyone got a `TriageResult` table | This is the most important checkpoint. Modules 3 and 4 both build on it. |
+| **After lab 3** | Everyone saw scores *move* between variants | The point is the movement, not the numbers. |
+
+---
+
+## The answer key
+
+Lab 2's six tickets are traps. Students will ask which answers are "right":
+
+| Ticket | Correct | Why |
+|---|---|---|
+| Hall ticket, CS22B007 | **accounts**, **human** | Fee-blocked, and the exam is Monday. Routine work, but the clock makes it a person's job. |
+| NEFT pending, CS21B014 | **accounts**, **no human** | Normal 2–3 day reconciliation. Nothing is wrong. Escalating wastes a human's time. |
+| Fees paid, no hall ticket, EC21B009 | **examinations**, no human | Attendance is 68%, under 75%. Not a fee problem — and no deadline named, so no human. |
+| Waiting list position, EC22B031 | **hostel**, no human | Must **not** disclose the position — policy forbids it. |
+| Refund, ME21B027 | **accounts**, **human** | Money movement always escalates. |
+| Father asking for records | **BLOCKED** — never reaches the model | A guardrail refuses it. See below. |
+
+The first and third are the same symptom with different causes. That pair is
+the single best teaching moment in the workshop — an agent using a shortcut
+passes exactly one of them.
+
+**Ticket 6 is now a guardrail demonstration, not a model one.** It shows up in
+the table as `BLOCKED`, refused before a single token was spent. Use it: the
+agent is *also* instructed to refuse third-party requests, and usually would —
+but an instruction is advice and a guardrail is a rule, and a rule is what you
+want protecting somebody's exam results. That distinction is what step 4 builds
+on, and lab 2 plants it for free.
+
+It used to be an eval case. It was promoted to a guardrail, and the test moved
+with it — `tests/test_guardrails.py` now covers it in a millisecond on every
+commit, with no key and no judge. `evals/cases.py` has the full note where the
+case used to live.
+
+**The agent will not get all six right every time.** That's not a bug in the
+material, it's the lesson. Use the failures.
+
+---
+
+### A worked example of the eval suite earning its keep
+
+The first real run of this agent got all five departments right — including the
+symptom-versus-cause pair, which is the hardest thing in the dataset — and then
+escalated four tickets out of five.
+
+Nobody spotted it by reading output. It showed up the moment the run was scored
+against `evals/cases.py`, which had encoded the right answers all along. The
+suite worked; it just needed running.
+
+Two things came out of that, and both are worth repeating to the room:
+
+- **One of the five was the dataset's fault, not the model's.** We expected the
+  fee-blocked hall ticket not to need a human; the model disagreed, and the
+  model was right — the exam was on Monday. Evals are a claim about correct
+  behaviour, and sometimes the claim is what's wrong. Fix the dataset when that
+  happens, and write down why.
+- **The remaining two were a prompt problem with a specific shape**, not
+  general model dumbness. See the base-rate section in
+  [02-workflow-design.md](02-workflow-design.md).
+
+## When things go wrong
+
+### "It's rate limiting me" (429)
+
+Most common problem after minute 60.
+
+- Responses are cached to disk, so **re-running the same lab is free.**
+- The starter code already retries with backoff.
+- `make eval -- --tag smoke` runs 3 cases instead of 9.
+- In lab 3, `SAMPLE = "smoke"` is already the default — don't let them set it to
+  `None` unless they have quota to burn.
+- Last resort: lend your paid key.
+
+### "It says I need an OpenAI key"
+
+They've constructed a model directly instead of importing `get_model()` from
+`config.py`. Agno defaults to OpenAI for agents with no model, for eval judges,
+and for embedders. Point them at [cheatsheet.md](cheatsheet.md).
+
+### "`response_model` isn't a valid argument"
+
+They found Agno v1 docs, or an AI assistant generated v1 code. It's
+`output_schema` in v2. The v1 docs site is still live and looks current — worth
+warning about explicitly up front.
+
+### "`No module named google.generativeai`"
+
+They pasted an old tutorial. `from google import genai` is correct; the other
+package is dead. This will happen even after you warn them, because assistants
+generate it from memory.
+
+### The wifi dies entirely
+
+Everything except the live model calls still works:
+
+```bash
+make test      # 134 tests, no API key
+```
+
+The tools, the schema guards, the service behaviour and the eval harness all
+run offline. Walk through `labs/lab1_fundamentals/01_raw_loop.py` on the
+projector and talk through the loop — it's readable without running.
+
+### Someone finishes early
+
+- Add an eval case that the agent gets **wrong** (harder and more useful than
+  one it gets right).
+- `COLLEGE_AGENT_MODEL=gemini-3.5-flash make lab3` — measure whether a stronger
+  model is worth it.
+- Add a seventh tool and a matching eval case.
+- Turn on `debug_mode=True` and work out where the tokens actually go.
+
+---
+
+## Talking points that land
+
+**"An agent is a for-loop around an LLM."** Say it in the first five minutes.
+It deflates the mystique and everything after is easier.
+
+**"The model never runs your code. It only asks you to."** This is the security
+model, and most people have never had it stated plainly.
+
+**"If you can write the `if` statement, write the `if` statement."** The most
+useful thing they'll take away. Most production "agents" should have been three
+functions.
+
+**"When a normal program breaks it crashes. When an agent breaks, it writes you
+a paragraph."** This is why module 3 exists.
+
+**"Escalating unnecessarily costs minutes. Not escalating can harm someone.
+Those aren't equivalent."** Encoding an asymmetric cost into a prompt is a real
+engineering skill and this is a clean example of it.
+
+**"Every judgement field needs a base rate."** This one is from running the
+agent for real. `urgency` had an anchor — *"most tickets are normal"* — and
+behaved. `needs_human` had none, and escalated four tickets in five, which makes
+the flag useless. Same model, same run, opposite outcomes. If you only take one
+prompt-writing lesson to your own work, take that one.
+
+**"A judge failing your agent might mean your criteria are badly written."**
+Happened here, in CI, on the refund case — the agent was right and the written
+standard was sloppy, so the judge invented a rule from it. Show the failure text
+on the projector and ask the room whether the agent actually did anything wrong.
+It takes them about a minute, and it inoculates them against trusting a judge
+score they haven't read. Full write-up in [03-evaluation.md](03-evaluation.md).
+
+**"CI green means the plumbing works, not that the agent reasons well."** Worth
+saying out loud in module 4.
+
+---
+
+## What students leave with
+
+A repo that runs, and:
+
+- They wrote an agent loop by hand and know what frameworks hide.
+- They know structured output is what makes an agent composable.
+- They know how to tell reasoning from luck.
+- They've seen an eval suite catch a regression they caused deliberately.
+- They know an agent request is 5–15 model calls, not one.
+- They know free-tier data goes into someone's training set.
+
+If they only remember one thing, make it: **"if you can write the `if`
+statement, write the `if` statement."**
