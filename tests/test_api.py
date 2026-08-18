@@ -7,13 +7,22 @@ service from a script is what it does when something is missing.
 
 from __future__ import annotations
 
-import os
-
 import pytest
 
+
+def _any_key_set() -> bool:
+    """True if the *selected* provider has a key — whichever provider that is."""
+    from college_agent.config import api_key_present
+
+    return api_key_present()
+
+
 pytestmark = pytest.mark.skipif(
-    bool(os.getenv("GOOGLE_API_KEY", "").strip()),
-    reason="These assert on the no-API-key path; unset GOOGLE_API_KEY to run them.",
+    _any_key_set(),
+    reason=(
+        "These assert on the no-API-key path; unset the selected provider's key "
+        "(GOOGLE_API_KEY or OPENAI_API_KEY) to run them."
+    ),
 )
 
 
@@ -22,10 +31,13 @@ class TestHealth:
         assert client.get("/health").status_code == 200
 
     def test_health_reports_degraded_without_a_key(self, client):
+        from college_agent.config import PROVIDERS, get_provider
+
         body = client.get("/health").json()
         assert body["status"] == "degraded"
         assert body["api_key_configured"] is False
-        assert "GOOGLE_API_KEY" in body["detail"]
+        # Names the key for the *selected* provider, not a hard-coded one.
+        assert PROVIDERS[get_provider()]["env_var"] in body["detail"]
 
     def test_health_does_not_call_the_model(self, client, monkeypatch):
         """A health check that costs an API request is a liability.
@@ -49,9 +61,12 @@ class TestTriageWithoutKey:
         assert response.status_code == 503
 
     def test_the_error_explains_the_fix(self, client):
+        from college_agent.config import PROVIDERS, get_provider
+
+        spec = PROVIDERS[get_provider()]
         detail = client.post("/triage", json={"message": "help"}).json()["detail"]
-        assert "GOOGLE_API_KEY" in detail
-        assert "aistudio.google.com" in detail  # tells you where to go
+        assert spec["env_var"] in detail
+        assert spec["signup"] in detail  # tells you where to go
 
     def test_no_stack_trace_leaks(self, client):
         detail = client.post("/triage", json={"message": "help"}).json()["detail"]

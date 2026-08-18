@@ -134,14 +134,18 @@ docs/                  theory notes, slides, cheatsheet, instructor guide
 ### Why every model is built in one file
 
 Agno silently falls back to **OpenAI** in three separate places: an `Agent` with
-no model, both of the eval judges, and vector-store embedders. In a Gemini-only
-setup everything looks fine right up until something abruptly demands
-`OPENAI_API_KEY`.
+no model, both of the eval judges, and vector-store embedders. Everything looks
+fine right up until something abruptly demands a key you didn't plan for.
 
 So `config.py` is the only place in this repo that constructs a model, and
 everything else imports from it. That's a real pattern worth stealing — pin your
 providers in one place, because your dependencies have opinions about defaults
 that you probably don't share.
+
+It also paid for itself: supporting a **second provider** is a branch in one
+function. Set `COLLEGE_AGENT_PROVIDER=openai` in `.env` and the agent, the team,
+the API and the eval suite's judge all follow, with no other file touched.
+(Gemini is the default — it has a free tier; OpenAI does not.)
 
 ---
 

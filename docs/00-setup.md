@@ -9,6 +9,25 @@ thing. None of that is interesting to debug in a room with a clock running.
 
 ---
 
+## Which provider?
+
+This workshop uses **Google Gemini** by default, because it has a free tier and
+needs no credit card. Follow the steps below and you'll be fine.
+
+**OpenAI also works**, if you'd rather use it and already have credits:
+
+```bash
+# in .env
+COLLEGE_AGENT_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+```
+
+> **OpenAI has no free tier.** You need paid credits on your account. If you're
+> a student without them, use Gemini — everything in the workshop works
+> identically either way.
+
+---
+
 ## 1. Get a Gemini API key
 
 Go to **<https://aistudio.google.com/apikey>**, sign in with any Google account,

@@ -32,33 +32,50 @@ reading it.
 
 ---
 
-## Agno's OpenAI defaults
+## Agno's silent defaults
 
-Agno reaches for OpenAI in three places. In a Gemini-only setup, everything
-looks configured until one of these fires.
+Agno reaches for OpenAI in three places when you didn't ask it to.
+
+The problem was never OpenAI — it's a supported provider here, see below. The
+problem is a default you didn't choose, firing silently, and demanding a key you
+may not have.
 
 | Where | What it defaults to | Fix |
 |---|---|---|
 | `Agent(model=None)` | `OpenAIResponses` | always pass `model=` |
 | `AccuracyEval`, `AgentAsJudgeEval` | `OpenAIChat` | pass `model=get_model()` |
-| `ChromaDb`, `LanceDb` embedder | `OpenAIEmbedder` | pass `embedder=GeminiEmbedder(...)` |
+| `ChromaDb`, `LanceDb` embedder | `OpenAIEmbedder` | pass `embedder=...` |
 
 In this repo, **`src/college_agent/config.py` is the only file that builds a
 model**. Import `get_model()` from there and you can't hit any of these.
 
-If you see `openai.OpenAIError`, you've constructed something directly.
+If you see `openai.OpenAIError` while on the google provider, you've constructed
+something directly.
 
----
+## Choosing a provider
+
+```bash
+COLLEGE_AGENT_PROVIDER=google    # default — free tier, no card
+COLLEGE_AGENT_PROVIDER=openai    # PAID ONLY, no free tier
+```
+
+Everything follows automatically — agent, team, API, and the eval suite's judge.
+That's the whole point of building every model in one file: adding a second
+provider was a branch in one function, not a refactor.
 
 ## API keys
 
 ```bash
-GOOGLE_API_KEY=...     # what Agno reads
+GOOGLE_API_KEY=...     # what Agno reads for the google provider
 GEMINI_API_KEY=...     # what Google's docs tell you — Agno ignores it
+OPENAI_API_KEY=...     # for the openai provider
 ```
 
-If both are set, the raw Google SDK prefers `GOOGLE_API_KEY`. Keep them
-identical or just set `GOOGLE_API_KEY`.
+If both Google vars are set, the raw Google SDK prefers `GOOGLE_API_KEY`. Keep
+them identical or just set `GOOGLE_API_KEY`.
+
+`make preflight` checks the key for whichever provider you selected, and tells
+you if you've set the other one by mistake.
 
 ---
 
@@ -159,7 +176,7 @@ make clean        # wipe the database and the response cache
 | what the agent is told to do | `src/college_agent/agent.py` → `INSTRUCTIONS` |
 | what it can do | `src/college_agent/tools.py` |
 | what it must return | `src/college_agent/schemas.py` |
-| which model, retries, caching | `src/college_agent/config.py` |
+| which provider, model, retries, caching | `src/college_agent/config.py` |
 | the student data | `src/college_agent/data/seed.py` |
 | the policy documents | `src/college_agent/kb/*.md` |
 | the eval cases | `evals/cases.py` |

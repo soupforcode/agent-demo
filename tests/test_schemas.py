@@ -70,6 +70,31 @@ class TestSchemaShape:
 
 
 class TestSchemaSurvivesAgnoConversion:
+    """The schema has to survive conversion for *every* provider we support.
+
+    Each provider has its own rules. OpenAI's strict structured-output mode
+    demands `additionalProperties: false` and every property listed as
+    required; Gemini rejects nesting. `TriageResult` satisfies both — but that
+    should be asserted, not assumed, because the next person to add a field
+    will not know either constraint exists.
+    """
+
+    @pytest.mark.parametrize("provider", ["google", "openai"])
+    def test_every_provider_accepts_the_schema(self, provider):
+        from agno.utils.models.schema_utils import get_response_schema_for_provider
+
+        schema = get_response_schema_for_provider(TriageResult, provider)
+        assert schema is not None
+        assert "$defs" not in schema, f"{provider} conversion produced nested $defs"
+
+    def test_openai_strict_mode_requirements(self):
+        """OpenAI refuses a strict schema that permits unlisted properties."""
+        from agno.utils.models.schema_utils import get_response_schema_for_provider
+
+        schema = get_response_schema_for_provider(TriageResult, "openai")
+        assert schema.get("additionalProperties") is False
+        assert set(schema["required"]) == set(schema["properties"])
+
     def test_agno_accepts_the_schema(self):
         """Run it through the exact conversion Agno does before calling Gemini."""
         from agno.models.google.gemini import prepare_response_schema

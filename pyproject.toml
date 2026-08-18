@@ -13,6 +13,10 @@ dependencies = [
     # literally renamed `deprecated-generative-ai-python`. If you see
     # `import google.generativeai`, that code is from a stale tutorial.
     "google-genai>=1.52.0",
+    # OpenAI is the alternative provider. Base dependency rather than an extra:
+    # "you picked openai but did not install the extra" is a classroom support
+    # question nobody needs, and the package is small.
+    "openai>=1.60.0",
     "pydantic>=2.12.5",
     "python-dotenv>=1.0.1",
     # agno[os] deps — the FastAPI serving layer used in module 4.

@@ -35,7 +35,7 @@ import os
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
-from .config import MissingAPIKeyError, describe_config
+from .config import PROVIDERS, MissingAPIKeyError, api_key_present, describe_config, get_provider
 from .schemas import TriageRequest, TriageResult
 
 log = logging.getLogger("college_agent.api")
@@ -64,14 +64,16 @@ def health() -> dict:
     request is a health check that will exhaust your quota, and one that fails
     when your *provider* is down rather than when *you* are down.
     """
-    key_present = bool(os.getenv("GOOGLE_API_KEY", "").strip())
+    key_present = api_key_present()
+    try:
+        env_var = PROVIDERS[get_provider()]["env_var"]
+    except Exception:  # noqa: BLE001 - an invalid provider is still a health answer
+        env_var = "COLLEGE_AGENT_PROVIDER"
     return {
         "status": "ok" if key_present else "degraded",
         "api_key_configured": key_present,
         "config": describe_config(),
-        "detail": (
-            "Ready." if key_present else "GOOGLE_API_KEY is not set — /triage will return 503."
-        ),
+        "detail": ("Ready." if key_present else f"{env_var} is not set — /triage will return 503."),
     }
 
 
@@ -124,7 +126,7 @@ def root() -> JSONResponse:
 
 agent_os = None
 
-if os.getenv("GOOGLE_API_KEY", "").strip():
+if api_key_present():
     try:
         from agno.os import AgentOS
 
@@ -147,7 +149,9 @@ if os.getenv("GOOGLE_API_KEY", "").strip():
         # actual product — should still work.
         log.warning("AgentOS could not be mounted; core endpoints still available", exc_info=True)
 else:
-    log.warning("GOOGLE_API_KEY not set — starting without AgentOS. /triage will return 503.")
+    log.warning(
+        "No API key for the selected provider — starting without AgentOS. /triage will return 503."
+    )
 
 
 def main() -> None:

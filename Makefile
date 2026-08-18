@@ -85,7 +85,13 @@ preflight: venv
 	@$(PY) scripts/preflight.py
 
 lab1: venv
-	@$(PY) labs/lab1_fundamentals/01_raw_loop.py
+	@# The raw loop is deliberately SDK-specific — the whole lesson is seeing it
+	@# with no framework in the way — so there's one per provider. Same loop.
+	@if [ "$$(grep -E '^COLLEGE_AGENT_PROVIDER=' .env 2>/dev/null | cut -d= -f2 | tr -d ' ')" = "openai" ]; then \
+	   $(PY) labs/lab1_fundamentals/01_raw_loop_openai.py; \
+	 else \
+	   $(PY) labs/lab1_fundamentals/01_raw_loop.py; \
+	 fi
 	@echo ""
 	@echo "  ── now the same thing with Agno ──"
 	@echo ""
