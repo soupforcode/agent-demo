@@ -186,8 +186,10 @@ Two tiers in `.github/workflows/ci.yml`:
 **`checks`** — every push, **no API key**. Tools, schema shape, service
 behaviour, eval harness. Fast, free, deterministic.
 
-**`eval`** — the real agent against the golden dataset. Needs a `GOOGLE_API_KEY`
-secret, so it skips cleanly on forks.
+**`eval`** — the real agent against the golden dataset. Needs a
+`GOOGLE_API_KEY` *or* an `OPENAI_API_KEY` repository secret, so it skips
+cleanly on forks. Google wins if both are set — CI shouldn't spend money by
+default.
 
 Be clear-eyed about what the first tier proves: **the plumbing is sound, not
 that the agent reasons well.** Only the second tells you that. A green badge
@@ -217,7 +219,8 @@ Then push and watch Actions run.
 - Break something in `agent.py`, run `make test`, and watch it fail before you
   push.
 - Add `GOOGLE_API_KEY` as a repository secret and watch the eval job gate a
-  prompt change.
+  prompt change. (`OPENAI_API_KEY` works the same way; set a repository
+  *variable* `COLLEGE_AGENT_PROVIDER=openai` to pick it when both are present.)
 
 ---
 

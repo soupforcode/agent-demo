@@ -31,7 +31,8 @@ Everything you need to run this, including what breaks and what to do about it.
 - [ ] Get **one paid key** of your own (a $10 prepay covers a classroom
       easily). Hold it in reserve for students who exhaust their quota.
 - [ ] If you want CI green in front of the room, add `GOOGLE_API_KEY` as a
-      repository secret.
+      repository secret. (`OPENAI_API_KEY` works too — the eval job takes
+      either, and prefers google because it's the free one.)
 
 ### Scheduling
 
