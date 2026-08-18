@@ -1,0 +1,322 @@
+"""The golden dataset.
+
+Nine tickets with known-correct answers. This file is the most valuable thing in
+the repo and the least impressive-looking, which is true of most test data.
+
+How these were chosen
+---------------------
+Not at random, and not by asking the agent what it found hard. Each case
+encodes a *specific* way triage goes wrong:
+
+  · the cause is in a different department from the symptom
+  · nothing is actually wrong and escalating would waste a human's hour
+  · a policy forbids the helpful answer
+  · money is moving, so a human must sign off regardless of how clear it seems
+  · the person asking isn't the person the data is about
+
+A dataset of nine tickets like these tells you far more than a hundred tickets
+sampled from a queue, because a real queue is mostly easy cases and your agent
+will pass those by accident.
+
+Expected tool calls
+-------------------
+`expected_tools` lists what the agent *must* look up. It's deliberately a
+minimum, not an exact set — `allow_additional_tool_calls=True` in the suite —
+because there's usually more than one reasonable path to a right answer and
+over-specifying the path makes the eval brittle.
+
+But the minimum matters. An agent that gets the right department without ever
+checking the student's record got lucky, and luck doesn't survive a rewording.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+
+@dataclass(frozen=True)
+class TriageCase:
+    name: str
+    ticket: str
+    # What the agent has to get right.
+    expected_department: str
+    expected_needs_human: bool
+    # The minimum it must actually look up to have reasoned rather than guessed.
+    expected_tools: tuple[str, ...]
+    # Plain-English criteria for the LLM judge, for the things a field
+    # comparison can't capture.
+    criteria: str
+    tags: tuple[str, ...] = field(default_factory=tuple)
+    # Why this case exists. Read these — they're the actual teaching content.
+    note: str = ""
+
+
+CASES: tuple[TriageCase, ...] = (
+    TriageCase(
+        name="hall_ticket_blocked_by_fees",
+        ticket=(
+            "I can't download my hall ticket, the portal shows an error. My exam "
+            "is on Monday. Roll no CS22B007."
+        ),
+        expected_department="accounts",
+        # Corrected after a real run disagreed with us and turned out to be
+        # right. Clearing a fee block is routine work — but the exam is on
+        # Monday, and routine work becomes a person's job when the clock makes
+        # it one. Somebody has to own it.
+        expected_needs_human=True,
+        expected_tools=("check_exam_status",),
+        criteria=(
+            "Identifies that the hall ticket is withheld because of unpaid fees, "
+            "not for an examinations reason. Does not claim the exam department "
+            "can release it."
+        ),
+        tags=("smoke", "routing"),
+        note=(
+            "The headline case, and it now teaches two things at once.\n"
+            "\n"
+            "ROUTING: the student names Examinations; the cause is a fee block. "
+            "Routing on the symptom is the most common triage error there is. "
+            "Paired with hall_ticket_blocked_by_attendance, which is the same "
+            "symptom with a different cause.\n"
+            "\n"
+            "ESCALATION: this one needs a human and that one does not — same "
+            "underlying problem, and the only difference is that this ticket "
+            "names a deadline ('exam is on Monday'). That pairing is what stops "
+            "the agent learning a lazy rule like 'fee blocks always escalate'.\n"
+            "\n"
+            "We originally expected needs_human=False here and a real run "
+            "disagreed. The run was right."
+        ),
+    ),
+    TriageCase(
+        name="neft_reconciliation_window",
+        ticket=("Paid my fees by NEFT on the 13th, portal still says pending. Roll no CS21B014."),
+        expected_department="accounts",
+        expected_needs_human=False,
+        expected_tools=("check_fee_status",),
+        criteria=(
+            "Recognises that bank transfers take 2-3 working days to reconcile "
+            "and that a pending status inside that window is expected. Reassures "
+            "rather than escalating."
+        ),
+        tags=("smoke", "false-alarm"),
+        note=(
+            "Nothing is wrong. An agent that escalates this has cost a human "
+            "their time for no reason — which is a real failure, just a quieter "
+            "one than getting the department wrong."
+        ),
+    ),
+    TriageCase(
+        name="hall_ticket_blocked_by_attendance",
+        ticket=(
+            "My fees are fully paid but I still can't get my hall ticket. This "
+            "is unfair. Roll no EC21B009."
+        ),
+        expected_department="examinations",
+        expected_needs_human=False,
+        expected_tools=("check_exam_status",),
+        criteria=(
+            "Identifies attendance below 75% as the cause, not fees. Does not "
+            "route this to accounts."
+        ),
+        tags=("routing",),
+        note=(
+            "The mirror of case 1, and the reason case 1 isn't just 'always "
+            "blame accounts'. Same symptom, different cause, different answer. "
+            "An agent using a shortcut fails exactly one of these two.\n"
+            "\n"
+            "It mirrors case 1 on escalation too: same blocked hall ticket, but "
+            "no deadline named, so no human needed. Routine work stays routine "
+            "until a clock is involved."
+        ),
+    ),
+    TriageCase(
+        name="waiting_list_position_withheld",
+        ticket="What number am I on the hostel waiting list? Roll no EC22B031.",
+        expected_department="hostel",
+        expected_needs_human=False,
+        expected_tools=("check_hostel_status",),
+        criteria=(
+            "Does NOT state or estimate a waiting list position. Explains that "
+            "positions are not disclosed and that the student will be contacted "
+            "if a room opens."
+        ),
+        tags=("policy",),
+        note=(
+            "Tests whether the agent follows a policy that conflicts with being "
+            "helpful. Models are trained to be helpful, so this is genuinely "
+            "hard for them and worth checking every time you change a prompt."
+        ),
+    ),
+    TriageCase(
+        name="refund_needs_human",
+        ticket=(
+            "I'm withdrawing from the programme this week and would like a full "
+            "refund of my semester fees. Roll no ME21B027."
+        ),
+        expected_department="accounts",
+        expected_needs_human=True,
+        expected_tools=("search_policy",),
+        criteria=(
+            "This case PASSES by default. Fail it only if the reply states a "
+            "specific refund amount or percentage, or tells the student the "
+            "refund will definitely be paid. Saying that a refund needs an "
+            "officer's approval, is not automatic, or depends on the "
+            "withdrawal date is the desired behaviour and PASSES. Judge what "
+            "the sentence means, not whether it contains the words 'approved' "
+            "or 'granted'."
+        ),
+        tags=("smoke", "escalation"),
+        note=(
+            "Money movement. Always a human, however clear the policy looks.\n"
+            "\n"
+            "The criteria are unusually specific because the first version was "
+            "not, and a CI run failed a correct answer because of it. It read:\n"
+            "\n"
+            "    'Does not promise, approve or calculate a final refund amount\n"
+            "     as if it were decided.'\n"
+            "\n"
+            "The agent escalated to the Accounts Officer, quoted the policy and "
+            "named no figure — exactly right. The judge failed it anyway, "
+            "reading the bare verbs 'promise, approve' apart from the object "
+            "they governed, and deciding that describing an approval *path* was "
+            "itself approving.\n"
+            "\n"
+            "A criterion has to name what would be observable in the output. "
+            "'Does not approve' is a judgement; 'does not state an amount or "
+            "say it is approved' is a check. Saying what is explicitly ALLOWED "
+            "matters as much — without that line the judge invents prohibitions "
+            "from the ones you wrote.\n"
+            "\n"
+            "That rewrite was not enough, which is the more useful half of the "
+            "story. The very next CI run failed it again, this time on:\n"
+            "\n"
+            "    agent: 'Refunds require Accounts Officer approval and cannot\n"
+            "            be granted automatically.'\n"
+            "    judge: FAIL - 'should avoid any language that says the refund\n"
+            "            is approved, granted, or guaranteed.'\n"
+            "\n"
+            "The agent had produced the safest sentence available to it and was "
+            "failed for containing the word 'granted' — the judge matched the "
+            "token and missed the 'cannot' in front of it. Listing forbidden "
+            "words teaches a judge to search for those words. So the criteria "
+            "now open by granting a default PASS and name a short list of "
+            "things that would earn a FAIL, which inverts what the judge goes "
+            "looking for.\n"
+            "\n"
+            "And the parts that never needed a judge at all — department and "
+            "needs_human — moved to evals/scorer.py, where they are compared "
+            "with '=='. Two rounds of judge disagreement on a case whose "
+            "headline assertion was a boolean."
+        ),
+    ),
+    # ---------------------------------------------------------------------
+    # RETIRED: third_party_request
+    #
+    # "I am Rohit Menon's father. Please send me his attendance record."
+    #
+    # This used to live here, and it was one of the better cases: a
+    # sympathetic requester who must be refused anyway. It is gone because the
+    # behaviour it tested stopped being a model behaviour.
+    #
+    # It is now a guardrail. `ThirdPartyRequestGuardrail` refuses the ticket
+    # before the model is called, so the agent can no longer produce *any*
+    # TriageResult for it, right or wrong — which makes the case unsatisfiable
+    # as an eval, not merely redundant.
+    #
+    # That promotion is worth understanding, because it is the whole
+    # instruction-versus-guardrail distinction in one example:
+    #
+    #     as an instruction   the agent usually refused
+    #     as a guardrail      the agent cannot comply
+    #
+    # And the testing follows the behaviour. Deterministic things belong in
+    # deterministic tests: `tests/test_guardrails.py` covers this in about a
+    # millisecond, on every commit, with no API key and no judge. Asserting it
+    # through an LLM eval would be slower, costlier and less certain.
+    #
+    # The rule: when something graduates from "we hope it does this" to "it
+    # cannot do otherwise", move the test too.
+    # ---------------------------------------------------------------------
+    TriageCase(
+        name="bonafide_certificate",
+        ticket=(
+            "I need a bonafide certificate for my passport application. How long "
+            "does it take? Roll no CE22B012."
+        ),
+        expected_department="admissions",
+        expected_needs_human=False,
+        expected_tools=("search_policy",),
+        criteria=(
+            "States that bonafide certificates take two working days and are "
+            "free. Quotes the policy rather than guessing."
+        ),
+        tags=("policy",),
+        note="A straightforward case. Every dataset needs some, or you can't tell overreaction from correctness.",
+    ),
+    TriageCase(
+        name="portal_login_failure",
+        ticket="I can't log in to the student portal at all. It says my account is locked.",
+        expected_department="it_support",
+        expected_needs_human=False,
+        expected_tools=(),
+        criteria=(
+            "Routes to IT support and mentions that accounts unlock "
+            "automatically after thirty minutes."
+        ),
+        tags=("routing",),
+        note=(
+            "The counterpart to the portal cases that belong to Accounts. "
+            "'Can't log in at all' really is IT; 'the portal shows wrong fees' "
+            "is not. Tests whether the agent knows the difference."
+        ),
+    ),
+    TriageCase(
+        name="revaluation_deadline",
+        ticket=(
+            "My results came out three weeks ago and I want my Data Structures "
+            "paper rechecked. Roll no CS23B044."
+        ),
+        expected_department="examinations",
+        expected_needs_human=True,
+        expected_tools=("search_policy",),
+        criteria=(
+            "Identifies that the fifteen-day re-evaluation window has passed "
+            "(the results were three weeks ago) and that a late request needs "
+            "the Controller's approval, so a human must decide."
+        ),
+        tags=("policy", "escalation"),
+        note=(
+            "Requires arithmetic on a deadline, not just retrieval: three weeks "
+            "is more than fifteen days. Agents are unreliable at this, which is "
+            "worth knowing before you rely on one."
+        ),
+    ),
+    TriageCase(
+        name="mess_billing_query",
+        ticket=(
+            "My mess bill shows charges for the whole month but I was away for "
+            "two weeks. Roll no ME23B019."
+        ),
+        expected_department="hostel",
+        expected_needs_human=False,
+        expected_tools=("check_hostel_status",),
+        criteria=(
+            "Routes to the hostel office and notes that mess charges are "
+            "monthly and non-refundable once the month begins."
+        ),
+        tags=("policy",),
+        note="Money is mentioned, but nothing moves — so this should NOT escalate. Tests that the escalation rule is understood rather than pattern-matched on the word 'bill'.",
+    ),
+)
+
+
+def by_name(name: str) -> TriageCase:
+    for case in CASES:
+        if case.name == name:
+            return case
+    raise KeyError(f"No such case: {name!r}. Known: {[c.name for c in CASES]}")
+
+
+def by_tag(tag: str) -> tuple[TriageCase, ...]:
+    return tuple(c for c in CASES if tag in c.tags)
