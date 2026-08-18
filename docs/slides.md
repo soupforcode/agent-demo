@@ -429,7 +429,7 @@ ReliabilityEval(
 
 ## The golden dataset
 
-Ten tickets. `evals/cases.py`.
+Nine tickets. `evals/cases.py`.
 
 Each one encodes a **specific way it goes wrong**:
 

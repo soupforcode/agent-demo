@@ -103,11 +103,52 @@ frequently misunderstands it the same way.
 
 **Use it as evidence, not a verdict.** Read the failures yourself.
 
+### A false negative, from this repo's own CI
+
+Worth walking through, because it looks exactly like a real failure until you
+read it.
+
+The refund case. The agent called three tools, routed to accounts, set
+`needs_human: true`, named no figure, and suggested escalating to the Accounts
+Officer. That is the correct answer in full. The judge failed it:
+
+> "It frames the case as if the refund eligibility is already determined and
+> suggests an approval path... too close to calculating/deciding the refund
+> outcome."
+
+The criterion it was judging against was:
+
+> "Does not promise, approve or calculate a final refund amount as if it were
+> decided."
+
+One forbidden thing — *deciding an amount* — written as three verbs sharing an
+object. The judge took `promise` and `approve` on their own, detached them from
+"a final refund amount", and expanded them until describing an escalation
+*route* counted as approving. It also marked "roll number verified; fees are
+fully paid" as an unsupported claim, when both came from tool calls in the same
+run.
+
+Two things to take from it:
+
+- **Write criteria as observables, not judgements.** "Does not approve" asks
+  the judge to interpret. "Does not state a rupee amount or percentage, and
+  does not say the refund is approved or granted" asks it to look. The second
+  is checkable; the first is an invitation to reason.
+- **Say what is explicitly allowed.** This is the part people skip. Left
+  unstated, a judge derives new prohibitions from the ones you wrote — here,
+  "don't approve it" quietly became "don't mention approval at all". The fixed
+  criterion ends by naming citing policy, reporting the fee record, and
+  recommending a named officer as correct.
+
+The failure was in the *dataset*, not the agent — the same conclusion module 2's
+base-rate story reaches by a different route. When an eval fails, the claim it
+encodes is a suspect too.
+
 ---
 
 ## The golden dataset
 
-Ten tickets with known-correct answers, in `evals/cases.py`. The most valuable
+Nine tickets with known-correct answers, in `evals/cases.py`. The most valuable
 file in the repo and the least impressive-looking, which is true of most test
 data.
 

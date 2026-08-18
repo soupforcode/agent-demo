@@ -215,7 +215,7 @@ Most common problem after minute 60.
 
 - Responses are cached to disk, so **re-running the same lab is free.**
 - The starter code already retries with backoff.
-- `make eval -- --tag smoke` runs 4 cases instead of 10.
+- `make eval -- --tag smoke` runs 3 cases instead of 9.
 - In lab 3, `SAMPLE = "smoke"` is already the default — don't let them set it to
   `None` unless they have quota to burn.
 - Last resort: lend your paid key.
@@ -285,6 +285,13 @@ agent for real. `urgency` had an anchor — *"most tickets are normal"* — and
 behaved. `needs_human` had none, and escalated four tickets in five, which makes
 the flag useless. Same model, same run, opposite outcomes. If you only take one
 prompt-writing lesson to your own work, take that one.
+
+**"A judge failing your agent might mean your criteria are badly written."**
+Happened here, in CI, on the refund case — the agent was right and the written
+standard was sloppy, so the judge invented a rule from it. Show the failure text
+on the projector and ask the room whether the agent actually did anything wrong.
+It takes them about a minute, and it inoculates them against trusting a judge
+score they haven't read. Full write-up in [03-evaluation.md](03-evaluation.md).
 
 **"CI green means the plumbing works, not that the agent reasons well."** Worth
 saying out loud in module 4.

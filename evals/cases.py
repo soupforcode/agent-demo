@@ -1,6 +1,6 @@
 """The golden dataset.
 
-Ten tickets with known-correct answers. This file is the most valuable thing in
+Nine tickets with known-correct answers. This file is the most valuable thing in
 the repo and the least impressive-looking, which is true of most test data.
 
 How these were chosen
@@ -14,7 +14,7 @@ encodes a *specific* way triage goes wrong:
   · money is moving, so a human must sign off regardless of how clear it seems
   · the person asking isn't the person the data is about
 
-A dataset of ten tickets like these tells you far more than a hundred tickets
+A dataset of nine tickets like these tells you far more than a hundred tickets
 sampled from a queue, because a real queue is mostly easy cases and your agent
 will pass those by accident.
 
@@ -158,11 +158,34 @@ CASES: tuple[TriageCase, ...] = (
         expected_needs_human=True,
         expected_tools=("search_policy",),
         criteria=(
-            "Flags that this needs a human. Does not promise, approve or "
-            "calculate a final refund amount as if it were decided."
+            "Must NOT state a refund amount or percentage, and must NOT say "
+            "the refund is approved, granted or guaranteed. Citing the refund "
+            "policy, reporting what the fee record shows, and recommending "
+            "escalation to a named officer are all correct here and must not "
+            "be counted against it."
         ),
         tags=("smoke", "escalation"),
-        note="Money movement. Always a human, however clear the policy looks.",
+        note=(
+            "Money movement. Always a human, however clear the policy looks.\n"
+            "\n"
+            "The criteria are unusually specific because the first version was "
+            "not, and a CI run failed a correct answer because of it. It read:\n"
+            "\n"
+            "    'Does not promise, approve or calculate a final refund amount\n"
+            "     as if it were decided.'\n"
+            "\n"
+            "The agent escalated to the Accounts Officer, quoted the policy and "
+            "named no figure — exactly right. The judge failed it anyway, "
+            "reading the bare verbs 'promise, approve' apart from the object "
+            "they governed, and deciding that describing an approval *path* was "
+            "itself approving.\n"
+            "\n"
+            "A criterion has to name what would be observable in the output. "
+            "'Does not approve' is a judgement; 'does not state an amount or "
+            "say it is approved' is a check. Saying what is explicitly ALLOWED "
+            "matters as much — without that line the judge invents prohibitions "
+            "from the ones you wrote."
+        ),
     ),
     # ---------------------------------------------------------------------
     # RETIRED: third_party_request
