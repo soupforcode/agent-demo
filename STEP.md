@@ -1,28 +1,28 @@
 
-  STEP 4 of 7 — Guardrails
+  STEP 5 of 7 — One agent, or several
 
-  New here:  Checks that run before the model — PII, and third-party record requests.
-  Run:       make test
+  New here:  A router in front of three specialists.
+  Run:       make lab2
 
-  Next:      git switch step-5-team
+  Next:      git switch step-6-evals
 
 ---
 
-# Step 4 — Guardrails
+# Step 5 — One agent, or several
 
-**Checks that run before the model — PII, and third-party record requests.**
+**A router in front of three specialists.**
 
 ## What to look at
 
-- An instruction is advice; a guardrail is a rule. The agent was
-- already told to refuse third-party requests. Now it cannot comply
-- even if a cleverly worded ticket talks it into trying.
-- They run before the API call, so a blocked ticket costs zero quota.
+- This is a comparison, not an upgrade. The team roughly doubles
+- your model calls — router, then specialist.
+- Ask honestly whether it did better, or just cost more. For six
+- tools and one domain, one agent is usually enough.
 
 ## Commands
 
 ```bash
-make test
+make lab2
 make test        # the tests that exist at this step, no API key needed
 make diff        # exactly what this step changed vs the previous one
 make step        # this summary again
@@ -31,7 +31,7 @@ make step        # this summary again
 ## Where this came from
 
 ```bash
-git diff step-3-tools step-4-guardrails -- src
+git diff step-4-guardrails step-5-team -- src
 ```
 
 That diff is the lesson. Everything else is unchanged.
@@ -42,6 +42,6 @@ Nothing here is precious. If you break something:
 
 ```bash
 git checkout .                  # undo your edits, keep the step
-git switch step-4-guardrails    # or jump back to a clean copy
+git switch step-5-team    # or jump back to a clean copy
 git switch main                 # or straight to the finished app
 ```
