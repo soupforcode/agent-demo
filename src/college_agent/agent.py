@@ -17,6 +17,7 @@ from agno.agent import Agent
 from pydantic import ValidationError
 
 from .config import get_model
+from .guardrails import default_guardrails, enforce
 from .schemas import TriageResult
 from .tools import TRIAGE_TOOLS
 
@@ -90,6 +91,7 @@ def build_triage_agent(
     *,
     instructions: list[str] | None = None,
     tools: list | None = None,
+    guardrails: bool = True,
     debug: bool = False,
     name: str = "College Triage Agent",
 ) -> Agent:
@@ -104,6 +106,10 @@ def build_triage_agent(
             model against a stronger one.
         instructions: Override the decision procedure. Defaults to INSTRUCTIONS.
         tools: Override the toolset. Defaults to all six.
+        guardrails: Run the pre-flight checks in `guardrails.py` — third-party
+            record requests and personal identifiers. Set False to see what the
+            instructions alone catch, which is the point of the exercise: an
+            instruction is advice, a guardrail is a rule.
         debug: Print the messages sent to the model, the raw response, every
             tool call and the token counts. Turn this on the first time
             anything surprises you — it is the fastest way to understand what
@@ -118,6 +124,11 @@ def build_triage_agent(
         # The contract. Without this the agent returns prose, and prose can't be
         # routed, counted or tested.
         output_schema=TriageResult,
+        # Checks that run BEFORE the model does — so they cost nothing, can't be
+        # argued out of, and behave identically on the thousandth ticket. The
+        # instructions above also ask for this behaviour; the difference is that
+        # instructions are advice and these are not.
+        pre_hooks=default_guardrails() if guardrails else None,
         # A hard stop. Without a limit a confused agent will happily call tools
         # until your free-tier quota is gone. Six tools, a couple of calls each,
         # plus slack — ten is generous for this task.
@@ -136,35 +147,55 @@ def run_triage(agent, ticket: str) -> TriageResult:
 
     `Agent.run()` does not have the return type you would expect. Its
     `.content` is a `TriageResult` on the happy path, but a plain `str` when
-    the model call fails, and sometimes valid JSON that simply hasn't been
-    parsed. Code that assumes the happy path gets
-
-        AttributeError: 'str' object has no attribute 'department'
-
+    a guardrail fires *or* when the model call fails, and those two are
+    indistinguishable from the RunOutput alone. Code that assumes the happy
+    path gets `AttributeError: 'str' object has no attribute 'department'`
     at some unrelated line, which is a miserable thing to debug.
 
-    So the narrowing happens here, once, and callers get either a real
-    TriageResult or a clear exception.
+    So this function does the narrowing in one place and hands back either a
+    real TriageResult or a typed exception:
+
+        TicketBlocked  a guardrail refused it   -> 403 at the edge
+        RuntimeError   the run failed           -> 502 at the edge
 
     Args:
-        agent: A triage agent, or a Team — both work.
+        agent: A triage agent, or a Team — both work, and `enforce` runs
+            regardless of whether the thing you pass has its own pre_hooks.
         ticket: What the student wrote.
     """
-    result = agent.run(ticket).content
+    # Explicit check first, so a refusal is a typed exception rather than
+    # something we have to reverse-engineer out of a RunOutput.
+    enforce(ticket)
 
-    if isinstance(result, str):
+    return as_triage_result(agent.run(ticket).content)
+
+
+def as_triage_result(content) -> TriageResult:
+    """Narrow whatever `.content` turned out to be into a TriageResult.
+
+    Split out of `run_triage` because the eval scorer needs exactly this and
+    nothing else — it is handed a finished RunOutput rather than running the
+    agent itself. Two callers, one set of rules about what counts as a valid
+    answer; a second copy of this logic would drift from the first.
+
+    Raises:
+        RuntimeError: if the content is not, and cannot be read as, a
+            TriageResult.
+    """
+    if isinstance(content, str):
         # Some paths hand back the right JSON as *text* rather than a parsed
         # model — a Team whose leader answers directly is the one you'll meet
-        # here. If it validates, take it.
+        # here, but providers do it too. If it validates, take it; the contract
+        # is satisfied even though the plumbing was lazy about it.
         try:
-            return TriageResult.model_validate_json(result)
+            return TriageResult.model_validate_json(content)
         except ValidationError:
             pass
 
-    if not isinstance(result, TriageResult):
-        raise RuntimeError(f"The agent did not return a TriageResult: {str(result)[:300]}")
+    if not isinstance(content, TriageResult):
+        raise RuntimeError(f"The agent did not return a TriageResult: {str(content)[:300]}")
 
-    return result
+    return content
 
 
 # A ready-built agent for the labs and the API to import. Built lazily so that

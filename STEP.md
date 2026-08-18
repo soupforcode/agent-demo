@@ -1,28 +1,28 @@
 
-  STEP 3 of 7 — Tools
+  STEP 4 of 7 — Guardrails
 
-  New here:  Six tools over the college database, and the agent that uses them.
-  Run:       make lab2
+  New here:  Checks that run before the model — PII, and third-party record requests.
+  Run:       make test
 
-  Next:      git switch step-4-guardrails
+  Next:      git switch step-5-team
 
 ---
 
-# Step 3 — Tools
+# Step 4 — Guardrails
 
-**Six tools over the college database, and the agent that uses them.**
+**Checks that run before the model — PII, and third-party record requests.**
 
 ## What to look at
 
-- Now it looks things up. The hall-ticket ticket should route to
-- accounts, not examinations — the block is unpaid fees, and only
-- the tool call reveals that.
-- Read the docstrings in tools.py: they are prompt text, not comments.
+- An instruction is advice; a guardrail is a rule. The agent was
+- already told to refuse third-party requests. Now it cannot comply
+- even if a cleverly worded ticket talks it into trying.
+- They run before the API call, so a blocked ticket costs zero quota.
 
 ## Commands
 
 ```bash
-make lab2
+make test
 make test        # the tests that exist at this step, no API key needed
 make diff        # exactly what this step changed vs the previous one
 make step        # this summary again
@@ -31,7 +31,7 @@ make step        # this summary again
 ## Where this came from
 
 ```bash
-git diff step-2-structured step-3-tools -- src
+git diff step-3-tools step-4-guardrails -- src
 ```
 
 That diff is the lesson. Everything else is unchanged.
@@ -42,6 +42,6 @@ Nothing here is precious. If you break something:
 
 ```bash
 git checkout .                  # undo your edits, keep the step
-git switch step-3-tools    # or jump back to a clean copy
+git switch step-4-guardrails    # or jump back to a clean copy
 git switch main                 # or straight to the finished app
 ```
