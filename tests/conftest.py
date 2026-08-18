@@ -34,7 +34,13 @@ def fresh_database():
     The data is fixed rather than random, so every assertion below can name
     exact values.
     """
-    from college_agent.data.seed import build
+    try:
+        from college_agent.data.seed import build
+    except ImportError:
+        # Early steps of the workshop branch series have no database yet.
+        # Nothing to seed, and that is not a failure.
+        yield
+        return
 
     build(quiet=True)
     yield

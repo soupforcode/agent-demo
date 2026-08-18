@@ -16,7 +16,7 @@
 PY := $(firstword $(wildcard .venv/bin/python .venv/Scripts/python.exe) .venv/bin/python)
 UV := $(shell command -v uv 2> /dev/null)
 
-.PHONY: help setup preflight lab1 lab2 lab3 lab4 test test-live eval eval-json serve docker docker-build clean lint format check venv
+.PHONY: help setup preflight lab1 lab2 lab3 lab4 test test-live eval eval-json serve docker docker-build clean lint format check venv step diff steps
 
 # Guard for every target that needs the virtualenv.
 #
@@ -36,6 +36,26 @@ venv:
 	  echo "      curl -LsSf https://astral.sh/uv/install.sh | sh"; \
 	  echo ""; \
 	  exit 1; }
+
+
+# Some targets only make sense once the relevant step exists. On the workshop
+# branch series (step-1-agent .. step-7-deploy) the code is built up one
+# concept at a time, so "that file isn't here yet" is a normal state, not a
+# broken checkout. Say which step it arrives at rather than dumping a
+# traceback.
+#   $(1) = file that must exist   $(2) = step that introduces it
+define needs
+	@test -e "$(1)" || { \
+	  echo ""; \
+	  echo "  Not available yet on this branch."; \
+	  echo ""; \
+	  echo "  $(1) arrives at $(2)."; \
+	  echo "      git switch $(2)"; \
+	  echo ""; \
+	  echo "  Or jump to the finished app:   git switch main"; \
+	  echo ""; \
+	  exit 1; }
+endef
 
 help:
 	@echo ""
@@ -60,6 +80,11 @@ help:
 	@echo "    make serve        http://localhost:8000"
 	@echo "    make docker       build and run the container"
 	@echo "    make clean        delete generated databases and caches"
+	@echo ""
+	@echo "  Workshop branches"
+	@echo "    make step         where am I, and what do I run next"
+	@echo "    make diff         what this step changed vs the previous one"
+	@echo "    make steps        list the step branches"
 	@echo ""
 
 setup:
@@ -98,6 +123,7 @@ lab1: venv
 	@$(PY) labs/lab1_fundamentals/02_first_agent.py
 
 lab2: venv
+	$(call needs,labs/lab2_workflow/01_structured_triage.py,step-3-tools)
 	@$(PY) labs/lab2_workflow/01_structured_triage.py
 	@echo ""
 	@echo "  ── now with a router in front of specialists ──"
@@ -105,6 +131,7 @@ lab2: venv
 	@$(PY) labs/lab2_workflow/02_routing_team.py
 
 lab3: venv
+	$(call needs,labs/lab3_eval/01_reliability.py,step-6-evals)
 	@$(PY) labs/lab3_eval/01_reliability.py
 	@echo ""
 	@$(PY) labs/lab3_eval/02_accuracy.py
@@ -112,6 +139,7 @@ lab3: venv
 	@$(PY) labs/lab3_eval/03_break_it.py
 
 lab4: venv
+	$(call needs,labs/lab4_deploy/01_call_the_api.py,step-7-deploy)
 	@$(PY) labs/lab4_deploy/01_call_the_api.py
 
 test: venv
@@ -121,6 +149,7 @@ test-live: venv
 	@$(PY) -m pytest
 
 eval: venv
+	$(call needs,evals/suite.py,step-6-evals)
 	@$(PY) evals/suite.py
 
 eval-json: venv
@@ -128,9 +157,11 @@ eval-json: venv
 	@$(PY) evals/suite.py --json-output evals/results/latest.json
 
 serve: venv
+	$(call needs,src/college_agent/api.py,step-7-deploy)
 	@$(PY) -m college_agent.api
 
 docker-build:
+	$(call needs,Dockerfile,step-7-deploy)
 	docker build -t college-triage:latest .
 
 docker: docker-build
@@ -144,6 +175,29 @@ format: venv
 	@$(PY) -m ruff check --fix src labs evals tests scripts
 
 check: lint test
+
+step:
+	@if [ -f STEP.md ]; then \
+	   sed -n '1,/^---$$/p' STEP.md | sed '$$d'; \
+	 else \
+	   echo ""; echo "  No STEP.md — you're probably on main (the finished app)."; echo ""; \
+	 fi
+	@echo "  Branches:  $$(git branch --format='%(refname:short)' | grep '^step-' | tr '\n' ' ')"
+	@echo ""
+
+diff:
+	@prev=$$(git branch --format='%(refname:short)' | grep '^step-' | sort | \
+	         awk -v cur="$$(git rev-parse --abbrev-ref HEAD)" '$$0==cur{print p; exit} {p=$$0}'); \
+	 if [ -z "$$prev" ]; then \
+	   echo "No previous step — this is the first one."; \
+	 else \
+	   echo "Showing what this step changed, versus $$prev:"; echo ""; \
+	   git --no-pager diff "$$prev" HEAD -- src labs evals tests; \
+	 fi
+
+steps:
+	@git branch --format='%(refname:short)' | grep '^step-' | sed 's/^/  /'
+
 
 clean:
 	rm -rf .cache tmp .pytest_cache .ruff_cache evals/results
