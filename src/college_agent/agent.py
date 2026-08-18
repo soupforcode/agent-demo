@@ -1,18 +1,25 @@
-"""The triage agent — step 1.
+"""The triage agent — step 2: a contract instead of prose.
 
-Three things, and that's a working agent:
+One parameter changed since step 1:
 
-    model         the reasoning engine   -> config.get_model()
-    instructions  how it should decide   -> INSTRUCTIONS
-    (that's it)
+    output_schema=TriageResult
 
-There are no tools yet, so it cannot look anything up. There is no schema yet,
-so it answers in prose. Both of those are deliberate: you're going to add them
-one at a time and see exactly what each one buys.
+That's it. The agent must now return a validated object — a department, an
+urgency, whether a human is needed — instead of a paragraph.
 
-Run it:
+It is a bigger change than it looks. Prose can be read; an object can be
+routed, counted, stored and tested. This is the line between a demo and a
+component.
 
-    python -m college_agent.agent
+**And watch what it does not fix.** The agent still has no tools, so it still
+cannot look up a single fact about CS22B007. What you get back now is a
+beautifully structured, fully validated, entirely invented answer.
+
+That is worth sitting with for a moment. Structure buys you parseability. It
+does not buy you truth, and it makes a wrong answer look considerably more
+authoritative than prose did.
+
+Tools are step 3.
 """
 
 from __future__ import annotations
@@ -20,27 +27,25 @@ from __future__ import annotations
 from agno.agent import Agent
 
 from .config import get_model
+from .schemas import TriageResult
 
-# --------------------------------------------------------------------------
-# Instructions
-# --------------------------------------------------------------------------
-# Notice what these are and aren't. They are not a description of the college.
-# They are a *decision procedure*: how to decide, and when to stop and ask a
-# human.
-#
-# The most common mistake when writing instructions is describing the domain
-# instead of the behaviour. The model already knows what a hostel is. What it
-# doesn't know is that you'd rather it escalated than guessed.
 INSTRUCTIONS = [
     "You triage incoming student tickets for a college administration office.",
     "Your job is to decide who should handle a ticket and how urgently. "
     "You do not resolve the ticket yourself and you do not reply to the student.",
-    "The departments are: accounts, hostel, examinations, admissions, it_support.",
-    "Judge urgency by consequences, not by tone. Capital letters are not an "
-    "emergency; a visa interview on Thursday is. Most tickets are not urgent.",
-    "Say when you are not confident. Escalating unnecessarily costs a few "
-    "minutes of someone's time; not escalating can harm a student. Those are "
-    "not equivalent, so do not treat them as a balanced trade-off.",
+    "Never invent a roll number, an amount, a date or a policy. If you could not "
+    "establish the roll number, leave student_id empty and say so in the "
+    "suggested action.",
+    "Set needs_human to true for anything involving money movement (refunds, "
+    "waivers, disputed payments), policy exceptions, discipline, safety or "
+    "wellbeing, requests about a student other than the sender, or the release "
+    "of original documents.",
+    "Also set needs_human to true when you are simply not confident. Uncertainty "
+    "is the signal, not something to work around.",
+    "Judge urgency by consequences, not by tone. Reserve 'critical' for a "
+    "deadline being missed right now. Most tickets are 'normal'.",
+    "Keep the summary under 25 words and factual — it is read by someone with "
+    "thirty seconds and forty tickets.",
 ]
 
 
@@ -49,21 +54,24 @@ def build_triage_agent(model_id: str | None = None, *, debug: bool = False) -> A
 
     Args:
         model_id: Override the model. Defaults to the provider's cheapest.
-        debug: Print every message sent to the model, the raw response and the
-            token counts. Turn this on the first time anything surprises you —
-            it is the fastest way to see what your agent actually did, as
-            opposed to what you assumed it did.
+        debug: Print every message, response and token count.
     """
     return Agent(
         name="College Triage Agent",
         model=get_model(model_id),
         instructions=INSTRUCTIONS,
-        # Gives the model today's date. Useful the moment any deadline is
-        # mentioned, and free.
+        # The contract. Without this the agent returns prose, and prose can't be
+        # routed, counted or tested.
+        output_schema=TriageResult,
         add_datetime_to_context=True,
-        markdown=True,
         debug_mode=debug,
     )
+
+
+def triage(message: str, student_id: str = "") -> TriageResult:
+    """Triage one ticket and return the structured decision."""
+    prompt = message if not student_id else f"[Ticket from {student_id}]\n\n{message}"
+    return build_triage_agent().run(prompt).content
 
 
 if __name__ == "__main__":
@@ -73,23 +81,25 @@ if __name__ == "__main__":
 
     rprint(f"[dim]{describe_config()}[/dim]\n")
 
-    build_triage_agent().print_response(
+    result = triage(
         "I can't download my hall ticket, the portal shows an error. "
-        "My exam is on Monday. Roll no CS22B007.",
-        stream=True,
+        "My exam is on Monday. Roll no CS22B007."
     )
+    rprint(result)
 
     rprint(
         "\n[dim]"
-        "Read that answer carefully before you're impressed by it.\n"
+        "That is a real Python object now — validated by Pydantic, with a\n"
+        "department you could route on and a needs_human flag you could act on.\n"
         "\n"
-        "It sounds confident. It named a department. But the agent has no way\n"
-        "to look up CS22B007 — no database, no tools — so whatever it told you\n"
-        "about that student, it made up.\n"
+        "It is also, almost certainly, wrong.\n"
         "\n"
-        "Two separate problems, and step 2 and step 3 fix one each:\n"
-        "  · the answer is prose, so no system can use it   -> step 2\n"
-        "  · the answer is invented, so nobody should trust it -> step 3\n"
+        "CS22B007 is fee-blocked. The hall ticket is withheld by Accounts, not\n"
+        "Examinations. The agent has no way to know that — it has no tools —\n"
+        "so it guessed from the words in the ticket, and the schema wrapped\n"
+        "that guess in something that looks authoritative.\n"
         "\n"
-        "Next:  git switch step-2-structured[/dim]\n"
+        "Run it twice. Does it even agree with itself?\n"
+        "\n"
+        "Next:  git switch step-3-tools[/dim]\n"
     )

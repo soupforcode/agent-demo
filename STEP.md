@@ -1,22 +1,23 @@
 
-  STEP 1 of 7 — An agent
+  STEP 2 of 7 — A contract
 
-  New here:  A model, some instructions, and nothing else. No tools, no schema.
+  New here:  output_schema=TriageResult — one parameter.
   Run:       python -m college_agent.agent
 
-  Next:      git switch step-2-structured
+  Next:      git switch step-3-tools
 
 ---
 
-# Step 1 — An agent
+# Step 2 — A contract
 
-**A model, some instructions, and nothing else. No tools, no schema.**
+**output_schema=TriageResult — one parameter.**
 
 ## What to look at
 
-- It answers in prose — readable, but no system can route on it.
-- It has no way to look up CS22B007, so anything it says about that
-- student is invented. Both problems get fixed, one per step.
+- You now get a validated object you could route, count and test.
+- It is also still invented — the agent has no tools yet. Structure
+- buys parseability, not truth, and it makes a wrong answer look
+- considerably more authoritative than prose did.
 
 ## Commands
 
@@ -27,12 +28,20 @@ make diff        # exactly what this step changed vs the previous one
 make step        # this summary again
 ```
 
+## Where this came from
+
+```bash
+git diff step-1-agent step-2-structured -- src
+```
+
+That diff is the lesson. Everything else is unchanged.
+
 ## Getting unstuck
 
 Nothing here is precious. If you break something:
 
 ```bash
 git checkout .                  # undo your edits, keep the step
-git switch step-1-agent    # or jump back to a clean copy
+git switch step-2-structured    # or jump back to a clean copy
 git switch main                 # or straight to the finished app
 ```
