@@ -16,6 +16,7 @@ from __future__ import annotations
 from agno.agent import Agent
 
 from .config import get_model
+from .guardrails import default_guardrails, enforce
 from .schemas import TriageResult
 from .tools import TRIAGE_TOOLS
 
@@ -73,6 +74,7 @@ def build_triage_agent(
     *,
     instructions: list[str] | None = None,
     tools: list | None = None,
+    guardrails: bool = True,
     debug: bool = False,
     name: str = "College Triage Agent",
 ) -> Agent:
@@ -87,6 +89,10 @@ def build_triage_agent(
             model against a stronger one.
         instructions: Override the decision procedure. Defaults to INSTRUCTIONS.
         tools: Override the toolset. Defaults to all six.
+        guardrails: Run the pre-flight checks in `guardrails.py` — third-party
+            record requests and personal identifiers. Set False to see what the
+            instructions alone catch, which is the point of the exercise: an
+            instruction is advice, a guardrail is a rule.
         debug: Print the messages sent to the model, the raw response, every
             tool call and the token counts. Turn this on the first time
             anything surprises you — it is the fastest way to understand what
@@ -101,6 +107,11 @@ def build_triage_agent(
         # The contract. Without this the agent returns prose, and prose can't be
         # routed, counted or tested.
         output_schema=TriageResult,
+        # Checks that run BEFORE the model does — so they cost nothing, can't be
+        # argued out of, and behave identically on the thousandth ticket. The
+        # instructions above also ask for this behaviour; the difference is that
+        # instructions are advice and these are not.
+        pre_hooks=default_guardrails() if guardrails else None,
         # A hard stop. Without a limit a confused agent will happily call tools
         # until your free-tier quota is gone. Six tools, a couple of calls each,
         # plus slack — ten is generous for this task.
@@ -136,8 +147,25 @@ def triage(message: str, student_id: str = "") -> TriageResult:
         student_id: Roll number, if the portal already knows who is asking.
     """
     prompt = message if not student_id else f"[Ticket from {student_id}]\n\n{message}"
-    result = triage_agent().run(prompt)
-    return result.content
+
+    # Check before dispatching. The agent has the same guardrails on its
+    # pre_hooks, but Agno swallows those into a RunOutput that is
+    # indistinguishable from a model failure — so the service layer checks
+    # explicitly to get an exception it can actually act on. See
+    # guardrails.enforce for the full reasoning.
+    enforce(prompt)
+
+    result = triage_agent().run(prompt).content
+
+    # A failed run (bad key, rate limit, refused schema) comes back with the
+    # error message as a plain string rather than a TriageResult. Returning
+    # that would sail past this function and blow up in FastAPI's response
+    # validation as a 500 - a server error for what is usually a provider
+    # problem. Fail here instead, where the caller can classify it.
+    if not isinstance(result, TriageResult):
+        raise RuntimeError(f"The agent did not return a TriageResult: {str(result)[:300]}")
+
+    return result
 
 
 if __name__ == "__main__":

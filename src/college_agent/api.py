@@ -36,6 +36,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
 from .config import PROVIDERS, MissingAPIKeyError, api_key_present, describe_config, get_provider
+from .guardrails import TicketBlocked
 from .schemas import TriageRequest, TriageResult
 
 log = logging.getLogger("college_agent.api")
@@ -95,6 +96,11 @@ def triage_endpoint(request: TriageRequest) -> TriageResult:
 
     try:
         return triage(request.message, request.student_id)
+    except TicketBlocked as exc:
+        # A guardrail refused it. The request was well-formed and understood;
+        # we are declining to process it on policy grounds. That is a 403, not
+        # a 500 — nothing went wrong, the system worked exactly as intended.
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except MissingAPIKeyError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001 - deliberately broad, see below

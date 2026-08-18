@@ -69,6 +69,7 @@ known-first-party = ["college_agent", "cases", "suite"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q --strict-markers"
+asyncio_mode = "auto"
 markers = [
     "live: requires a real GOOGLE_API_KEY and makes network calls (deselect with '-m \"not live\"')",
 ]
