@@ -59,7 +59,11 @@ CASES: tuple[TriageCase, ...] = (
             "is on Monday. Roll no CS22B007."
         ),
         expected_department="accounts",
-        expected_needs_human=False,
+        # Corrected after a real run disagreed with us and turned out to be
+        # right. Clearing a fee block is routine work — but the exam is on
+        # Monday, and routine work becomes a person's job when the clock makes
+        # it one. Somebody has to own it.
+        expected_needs_human=True,
         expected_tools=("check_exam_status",),
         criteria=(
             "Identifies that the hall ticket is withheld because of unpaid fees, "
@@ -68,9 +72,20 @@ CASES: tuple[TriageCase, ...] = (
         ),
         tags=("smoke", "routing"),
         note=(
-            "The headline case. The student names Examinations; the cause is a "
-            "fee block. Routing on the symptom is the most common triage error "
-            "there is."
+            "The headline case, and it now teaches two things at once.\n"
+            "\n"
+            "ROUTING: the student names Examinations; the cause is a fee block. "
+            "Routing on the symptom is the most common triage error there is. "
+            "Paired with hall_ticket_blocked_by_attendance, which is the same "
+            "symptom with a different cause.\n"
+            "\n"
+            "ESCALATION: this one needs a human and that one does not — same "
+            "underlying problem, and the only difference is that this ticket "
+            "names a deadline ('exam is on Monday'). That pairing is what stops "
+            "the agent learning a lazy rule like 'fee blocks always escalate'.\n"
+            "\n"
+            "We originally expected needs_human=False here and a real run "
+            "disagreed. The run was right."
         ),
     ),
     TriageCase(
@@ -108,7 +123,11 @@ CASES: tuple[TriageCase, ...] = (
         note=(
             "The mirror of case 1, and the reason case 1 isn't just 'always "
             "blame accounts'. Same symptom, different cause, different answer. "
-            "An agent using a shortcut fails exactly one of these two."
+            "An agent using a shortcut fails exactly one of these two.\n"
+            "\n"
+            "It mirrors case 1 on escalation too: same blocked hall ticket, but "
+            "no deadline named, so no human needed. Routine work stays routine "
+            "until a clock is involved."
         ),
     ),
     TriageCase(

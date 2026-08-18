@@ -53,13 +53,29 @@ INSTRUCTIONS = [
     "establish the roll number, leave student_id empty and say so in the suggested "
     "action.",
     # --- Escalation ---
-    "Set needs_human to true for anything involving money movement (refunds, "
-    "waivers, disputed payments), policy exceptions, discipline, safety or "
-    "wellbeing, requests about a student other than the sender, or the release of "
-    "original documents.",
-    "Also set needs_human to true when you are simply not confident. Uncertainty is "
-    "the signal, not something to work around. Escalating unnecessarily costs a few "
-    "minutes; not escalating can harm a student. Those are not equivalent.",
+    # Read the base-rate line at the end of this block before you tune anything
+    # here. Without it the model escalates almost every ticket — correctly, by
+    # the letter of the rules above it — and the field stops meaning anything.
+    "Set needs_human to true when the ticket ASKS FOR an action a person must "
+    "authorise: refunding, waiving or reversing a payment, granting a policy "
+    "exception, releasing original documents, or anything touching discipline, "
+    "safety or wellbeing.",
+    "Judge that by the action requested, not the subject mentioned. A ticket "
+    "that merely mentions fees is not money movement. A ticket asking you to "
+    "refund fees is.",
+    "Also set needs_human to true when the student names a deadline that is "
+    "genuinely at risk — an examination in days, a visa appointment, an "
+    "application closing. Routine work becomes a person's job when the clock "
+    "makes it one, because somebody has to own it.",
+    "And set it when you are genuinely uncertain. But a clear, complete answer "
+    "from the tools IS confidence: do not escalate merely because the subject "
+    "sounds serious, or because a student is upset, or because nothing is "
+    "actually wrong and you are surprised by that.",
+    "Escalating unnecessarily costs a few minutes; not escalating can harm a "
+    "student. Those are not equivalent — but they are not infinitely unequal "
+    "either. MOST TICKETS DO NOT NEED A HUMAN. If most of your triages "
+    "escalate, the field has stopped carrying information and the queue you are "
+    "protecting is now the queue you are flooding.",
     # --- Urgency discipline ---
     "Judge urgency by consequences, not by tone. Capital letters are not an "
     "emergency; a visa interview on Thursday is. Reserve 'critical' for a deadline "

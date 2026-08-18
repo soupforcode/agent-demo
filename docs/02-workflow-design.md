@@ -176,6 +176,56 @@ Which is exactly why module 3 checks whether it did.
 
 ---
 
+## Every judgement field needs a base rate
+
+This one came out of running the workshop's own agent and comparing it to the
+answer key. Two fields, same model, same run:
+
+```
+urgency       "... Most tickets are 'normal'."      -> a sensible spread
+needs_human   (no base rate at all)                 -> escalated 4 of 5
+```
+
+The escalation instructions were a list of triggers plus a thumb on the scale:
+
+> "Escalating unnecessarily costs a few minutes; not escalating can harm a
+> student. Those are not equivalent."
+
+Every word of that is true, and the model followed it exactly — so it escalated
+almost everything, and the field stopped carrying any information. A flag that
+is true four times in five tells a human nothing.
+
+**The field with a calibration anchor behaved. The field without one didn't.**
+
+Whenever you ask a model for a judgement, give it three things:
+
+1. **What triggers it** — precisely, and in terms of the *action requested*
+   rather than the subject mentioned. "Anything involving money movement" gets
+   read as "anything involving money", and every fee question escalates.
+2. **What does not** — a clear tool result *is* confidence. Without saying so,
+   "escalate when unsure" has no floor.
+3. **A base rate** — "most tickets are normal", "most tickets do not need a
+   human". This is the part people leave out, and it is the part that does the
+   work.
+
+The asymmetry is worth keeping — being wrong in one direction really is worse
+than the other. Just don't leave it unbounded.
+
+### The pair that stops a lazy rule
+
+Two tickets, the same underlying problem, opposite answers:
+
+| Ticket | Deadline named | Escalate |
+|---|---|---|
+| hall ticket withheld, "exam is on Monday" | yes | **yes** |
+| hall ticket withheld, no date given | no | no |
+
+Routine work becomes a person's job when the clock makes it one. Without that
+pair in the dataset, an agent can score full marks with the rule "fee blocks
+always escalate" — and you would never find out.
+
+---
+
 ## Escalation is a design decision
 
 ```python

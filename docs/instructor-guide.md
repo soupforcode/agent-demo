@@ -157,9 +157,9 @@ Lab 2's six tickets are traps. Students will ask which answers are "right":
 
 | Ticket | Correct | Why |
 |---|---|---|
-| Hall ticket, CS22B007 | **accounts**, no human | Fee-blocked. Examinations can do nothing until it clears. |
+| Hall ticket, CS22B007 | **accounts**, **human** | Fee-blocked, and the exam is Monday. Routine work, but the clock makes it a person's job. |
 | NEFT pending, CS21B014 | **accounts**, **no human** | Normal 2–3 day reconciliation. Nothing is wrong. Escalating wastes a human's time. |
-| Fees paid, no hall ticket, EC21B009 | **examinations**, no human | Attendance is 68%, under 75%. Not a fee problem. |
+| Fees paid, no hall ticket, EC21B009 | **examinations**, no human | Attendance is 68%, under 75%. Not a fee problem — and no deadline named, so no human. |
 | Waiting list position, EC22B031 | **hostel**, no human | Must **not** disclose the position — policy forbids it. |
 | Refund, ME21B027 | **accounts**, **human** | Money movement always escalates. |
 | Father asking for records | **BLOCKED** — never reaches the model | A guardrail refuses it. See below. |
@@ -184,6 +184,27 @@ case used to live.
 material, it's the lesson. Use the failures.
 
 ---
+
+### A worked example of the eval suite earning its keep
+
+The first real run of this agent got all five departments right — including the
+symptom-versus-cause pair, which is the hardest thing in the dataset — and then
+escalated four tickets out of five.
+
+Nobody spotted it by reading output. It showed up the moment the run was scored
+against `evals/cases.py`, which had encoded the right answers all along. The
+suite worked; it just needed running.
+
+Two things came out of that, and both are worth repeating to the room:
+
+- **One of the five was the dataset's fault, not the model's.** We expected the
+  fee-blocked hall ticket not to need a human; the model disagreed, and the
+  model was right — the exam was on Monday. Evals are a claim about correct
+  behaviour, and sometimes the claim is what's wrong. Fix the dataset when that
+  happens, and write down why.
+- **The remaining two were a prompt problem with a specific shape**, not
+  general model dumbness. See the base-rate section in
+  [02-workflow-design.md](02-workflow-design.md).
 
 ## When things go wrong
 
@@ -257,6 +278,12 @@ a paragraph."** This is why module 3 exists.
 **"Escalating unnecessarily costs minutes. Not escalating can harm someone.
 Those aren't equivalent."** Encoding an asymmetric cost into a prompt is a real
 engineering skill and this is a clean example of it.
+
+**"Every judgement field needs a base rate."** This one is from running the
+agent for real. `urgency` had an anchor — *"most tickets are normal"* — and
+behaved. `needs_human` had none, and escalated four tickets in five, which makes
+the flag useless. Same model, same run, opposite outcomes. If you only take one
+prompt-writing lesson to your own work, take that one.
 
 **"CI green means the plumbing works, not that the agent reasons well."** Worth
 saying out loud in module 4.
