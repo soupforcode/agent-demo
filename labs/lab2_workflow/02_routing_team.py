@@ -29,7 +29,6 @@ system that is slower, dearer and harder to debug, in exchange for nothing.
 
 from __future__ import annotations
 
-import os
 import sys
 import time
 from pathlib import Path
@@ -39,7 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from rich.console import Console  # noqa: E402
 
 from college_agent.agent import build_triage_agent, run_triage  # noqa: E402
-from college_agent.config import describe_config  # noqa: E402
+from college_agent.config import MissingAPIKeyError, check_api_key, describe_config  # noqa: E402
 from college_agent.team import build_triage_team  # noqa: E402
 
 console = Console()
@@ -60,9 +59,15 @@ def show(label: str, result, seconds: float) -> None:
 
 
 def main() -> None:
-    if not os.getenv("GOOGLE_API_KEY", "").strip():
-        console.print("\n[red]GOOGLE_API_KEY is not set.[/red] Run `make preflight`.\n")
-        raise SystemExit(1)
+    # Not `os.getenv("GOOGLE_API_KEY")`. That names one provider, and this
+    # repo supports two — a student with only an OpenAI key would be refused
+    # by a lab that was about to work fine. check_api_key() asks config.py,
+    # which knows which provider is selected and what its variable is called.
+    try:
+        check_api_key()
+    except MissingAPIKeyError as exc:
+        console.print(f"\n[red]{exc}[/red]")
+        raise SystemExit(1) from None
 
     console.print(f"\n[bold]One agent vs a team[/bold]  [dim]{describe_config()}[/dim]")
     console.print(f"\n[bold]Ticket:[/bold] {TICKET}")

@@ -30,7 +30,6 @@ to spend.
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -43,7 +42,7 @@ from rich.table import Table  # noqa: E402
 
 from cases import CASES  # noqa: E402
 from college_agent.agent import INSTRUCTIONS, build_triage_agent, run_triage  # noqa: E402
-from college_agent.config import describe_config  # noqa: E402
+from college_agent.config import MissingAPIKeyError, check_api_key, describe_config  # noqa: E402
 from college_agent.guardrails import TicketBlocked  # noqa: E402
 from college_agent.tools import (  # noqa: E402
     check_hostel_status,
@@ -87,9 +86,15 @@ def variants() -> dict[str, object]:
 
 
 def main() -> None:
-    if not os.getenv("GOOGLE_API_KEY", "").strip():
-        console.print("\n[red]GOOGLE_API_KEY is not set.[/red] Run `make preflight`.\n")
-        raise SystemExit(1)
+    # Not `os.getenv("GOOGLE_API_KEY")`. That names one provider, and this
+    # repo supports two — a student with only an OpenAI key would be refused
+    # by a lab that was about to work fine. check_api_key() asks config.py,
+    # which knows which provider is selected and what its variable is called.
+    try:
+        check_api_key()
+    except MissingAPIKeyError as exc:
+        console.print(f"\n[red]{exc}[/red]")
+        raise SystemExit(1) from None
 
     cases = [c for c in CASES if SAMPLE is None or SAMPLE in c.tags]
 

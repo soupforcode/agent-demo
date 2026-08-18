@@ -25,7 +25,6 @@ works. That's what `make eval` is for.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -37,15 +36,20 @@ from rich.console import Console
 
 from cases import CASES
 from college_agent.agent import build_triage_agent
-from college_agent.config import describe_config
+from college_agent.config import MissingAPIKeyError, check_api_key, describe_config
 
 console = Console()
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
 
 def main() -> int:
-    if not os.getenv("GOOGLE_API_KEY", "").strip():
-        console.print("\n[red]GOOGLE_API_KEY is not set.[/red] Recording needs a real key.\n")
+    # Recording fixtures means calling the real provider, so a key is
+    # required — but which key depends on the provider config.py selected.
+    try:
+        check_api_key()
+    except MissingAPIKeyError as exc:
+        console.print(f"\n[red]{exc}[/red]")
+        console.print("[dim]Recording fixtures needs a real key — that is the point of it.[/dim]\n")
         return 1
 
     FIXTURE_DIR.mkdir(exist_ok=True)

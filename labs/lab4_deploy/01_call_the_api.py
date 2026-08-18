@@ -32,7 +32,6 @@ endpoint; the rest is infrastructure we didn't have to build.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -43,6 +42,17 @@ from fastapi.testclient import TestClient  # noqa: E402
 from rich.console import Console  # noqa: E402
 
 from college_agent.api import agent_os, app  # noqa: E402
+from college_agent.config import (  # noqa: E402
+    PROVIDERS,
+    api_key_present,
+    get_provider,
+)
+
+
+def key_var() -> str:
+    """The env var the selected provider actually reads."""
+    return PROVIDERS[get_provider()]["env_var"]
+
 
 console = Console()
 
@@ -62,7 +72,10 @@ def main() -> None:
     health = client.get("/health")
     console.print(f"  [dim]{health.status_code}[/dim] {json.dumps(health.json(), indent=2)}")
 
-    has_key = bool(os.getenv("GOOGLE_API_KEY", "").strip())
+    # api_key_present() rather than a named variable: it asks config.py which
+    # provider is selected and checks that one's key. Never raises, which is
+    # what you want for a branch that only decides how to phrase an outcome.
+    has_key = api_key_present()
 
     # --- 2. the endpoint that matters ------------------------------------
     console.print("\n[bold]POST /triage[/bold]")
@@ -81,7 +94,7 @@ def main() -> None:
             console.print(
                 "\n  [dim]That 503 is the service behaving correctly without a key:\n"
                 "  it started, it's serving, and it's telling you precisely what's\n"
-                "  missing. Set GOOGLE_API_KEY and run again for a real triage.[/dim]"
+                f"  missing. Set {key_var()} and run again for a real triage.[/dim]"
             )
 
     # --- 3. validation ---------------------------------------------------
@@ -127,7 +140,8 @@ def main() -> None:
         "Then let CI hold the line:\n"
         "\n"
         "  .github/workflows/ci.yml runs the tests and the keyless evals on every\n"
-        "  push. Add GOOGLE_API_KEY as a repository secret and it runs the live\n"
+        "  push. Add GOOGLE_API_KEY or OPENAI_API_KEY as a repository secret and\n"
+        "  it runs the live\n"
         "  eval suite too — so a prompt change that quietly breaks routing fails\n"
         "  the build instead of reaching users.\n"
         "\n"

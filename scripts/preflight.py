@@ -44,6 +44,18 @@ def warn(msg: str) -> None:
     warnings.append(msg)
 
 
+def skip(msg: str, arrives_at: str) -> None:
+    """Report something this branch doesn't have yet. NOT a failure.
+
+    The workshop's hands-on half is a branch series, so on `step-1-agent`
+    there genuinely is no tools.py. Reporting that as broken — and telling
+    the student to reinstall — sends them chasing a problem that does not
+    exist. Preflight has to pass on every branch, because docs/00-setup.md
+    makes it the gate everybody runs before anything else.
+    """
+    print(f"  {DIM}-{RESET} {msg} {DIM}(arrives at {arrives_at}){RESET}")
+
+
 def check_python() -> None:
     major, minor = sys.version_info[:2]
     if (major, minor) < (3, 10):
@@ -140,7 +152,11 @@ def check_key() -> None:
 def check_database() -> None:
     try:
         from college_agent.data.seed import DB_PATH, build
+    except ModuleNotFoundError:
+        skip("No college database on this branch yet", "step-3-tools")
+        return
 
+    try:
         build(quiet=True)
         ok(f"College database built ({DB_PATH.name})")
     except Exception as exc:  # noqa: BLE001
@@ -151,7 +167,11 @@ def check_tools() -> None:
     """Tools are plain Python — they must work with no API key at all."""
     try:
         from college_agent.tools import check_fee_status, search_policy
+    except ModuleNotFoundError:
+        skip("No tools on this branch yet", "step-3-tools")
+        return
 
+    try:
         assert "CS21B014" in check_fee_status("CS21B014")
         assert "fifteen days" in search_policy("re-evaluation")
         ok("Tools work offline (no API key needed)")
@@ -260,7 +280,12 @@ def main() -> int:
     else:
         print(f"{GREEN}{BOLD}PREFLIGHT PASSED{RESET} — you're ready for the workshop.\n")
 
-    print(f"{DIM}Next:  make lab1{RESET}\n")
+    # `make lab1` is the right next step on main, but the branch series does
+    # not have that lab until step-3. Point at `make step` there instead.
+    if (REPO_ROOT / "labs" / "lab1_fundamentals").is_dir():
+        print(f"{DIM}Next:  make lab1{RESET}\n")
+    else:
+        print(f"{DIM}Next:  make step{RESET}\n")
     return 0
 
 

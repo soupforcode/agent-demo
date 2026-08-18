@@ -17,7 +17,6 @@ is a trap that a naive triage would fall into.
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -27,8 +26,22 @@ from rich.console import Console  # noqa: E402
 from rich.table import Table  # noqa: E402
 
 from college_agent.agent import build_triage_agent, run_triage  # noqa: E402
-from college_agent.config import describe_config  # noqa: E402
-from college_agent.guardrails import TicketBlocked  # noqa: E402
+from college_agent.config import MissingAPIKeyError, check_api_key, describe_config  # noqa: E402
+
+try:
+    from college_agent.guardrails import TicketBlocked  # noqa: E402
+except ModuleNotFoundError:
+    # Guardrails arrive at step-4 of the branch series. Before that there is
+    # nothing to raise this, so the last ticket reaches the model and gets
+    # refused (or not) on the strength of the instructions alone.
+    #
+    # That contrast is the lesson, and you can see it directly:
+    #     git diff step-3-tools step-4-guardrails
+    # Ticket 6 goes from "whatever the model decided" to BLOCKED — an
+    # instruction is advice, a guardrail is a rule.
+    class TicketBlocked(Exception):  # type: ignore[no-redef]
+        """Never raised on this branch — guardrails do not exist yet."""
+
 
 console = Console()
 
@@ -67,9 +80,15 @@ TICKETS = [
 
 
 def main() -> None:
-    if not os.getenv("GOOGLE_API_KEY", "").strip():
-        console.print("\n[red]GOOGLE_API_KEY is not set.[/red] Run `make preflight`.\n")
-        raise SystemExit(1)
+    # Not `os.getenv("GOOGLE_API_KEY")`. That names one provider, and this
+    # repo supports two — a student with only an OpenAI key would be refused
+    # by a lab that was about to work fine. check_api_key() asks config.py,
+    # which knows which provider is selected and what its variable is called.
+    try:
+        check_api_key()
+    except MissingAPIKeyError as exc:
+        console.print(f"\n[red]{exc}[/red]")
+        raise SystemExit(1) from None
 
     console.print(f"\n[bold]Structured triage[/bold]  [dim]{describe_config()}[/dim]\n")
 

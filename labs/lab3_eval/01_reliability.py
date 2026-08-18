@@ -26,7 +26,6 @@ commit.
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
@@ -39,15 +38,21 @@ from rich.console import Console  # noqa: E402
 
 from cases import CASES  # noqa: E402
 from college_agent.agent import build_triage_agent  # noqa: E402
-from college_agent.config import describe_config  # noqa: E402
+from college_agent.config import MissingAPIKeyError, check_api_key, describe_config  # noqa: E402
 
 console = Console()
 
 
 def main() -> None:
-    if not os.getenv("GOOGLE_API_KEY", "").strip():
-        console.print("\n[red]GOOGLE_API_KEY is not set.[/red] Run `make preflight`.\n")
-        raise SystemExit(1)
+    # Not `os.getenv("GOOGLE_API_KEY")`. That names one provider, and this
+    # repo supports two — a student with only an OpenAI key would be refused
+    # by a lab that was about to work fine. check_api_key() asks config.py,
+    # which knows which provider is selected and what its variable is called.
+    try:
+        check_api_key()
+    except MissingAPIKeyError as exc:
+        console.print(f"\n[red]{exc}[/red]")
+        raise SystemExit(1) from None
 
     console.print(
         f"\n[bold]Reliability: did it look things up?[/bold]  [dim]{describe_config()}[/dim]\n"

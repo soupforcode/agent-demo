@@ -57,6 +57,22 @@ define needs
 	  exit 1; }
 endef
 
+# The soft version, for the SECOND half of a lab whose halves arrive at
+# different steps. The first half has already run and succeeded, so a part
+# that hasn't been introduced yet is a note, not a failed target.
+#   $(1) = file   $(2) = step that introduces it   $(3) = banner for the part
+define later
+	@if [ -e "$(1)" ]; then \
+	   echo ""; \
+	   echo "  ── $(3) ──"; \
+	   echo ""; \
+	   $(PY) "$(1)"; \
+	 else \
+	   echo "  ($(1) arrives at $(2) — skipping that part.)"; \
+	   echo ""; \
+	 fi
+endef
+
 help:
 	@echo ""
 	@echo "  Architecting Autonomous Intelligence"
@@ -110,6 +126,7 @@ preflight: venv
 	@$(PY) scripts/preflight.py
 
 lab1: venv
+	$(call needs,labs/lab1_fundamentals/01_raw_loop.py,step-3-tools)
 	@# The raw loop is deliberately SDK-specific — the whole lesson is seeing it
 	@# with no framework in the way — so there's one per provider. Same loop.
 	@if [ "$$(grep -E '^COLLEGE_AGENT_PROVIDER=' .env 2>/dev/null | cut -d= -f2 | tr -d ' ')" = "openai" ]; then \
@@ -125,10 +142,7 @@ lab1: venv
 lab2: venv
 	$(call needs,labs/lab2_workflow/01_structured_triage.py,step-3-tools)
 	@$(PY) labs/lab2_workflow/01_structured_triage.py
-	@echo ""
-	@echo "  ── now with a router in front of specialists ──"
-	@echo ""
-	@$(PY) labs/lab2_workflow/02_routing_team.py
+	$(call later,labs/lab2_workflow/02_routing_team.py,step-5-team,now with a router in front of specialists)
 
 lab3: venv
 	$(call needs,labs/lab3_eval/01_reliability.py,step-6-evals)
@@ -167,12 +181,18 @@ docker-build:
 docker: docker-build
 	docker run --rm -p 8000:8000 --env-file .env college-triage:latest
 
+# Only the directories this branch actually has. labs/ and evals/ arrive
+# partway through the step series, and `make lint` has to work on every
+# branch — a linter that errors because a directory hasn't been introduced
+# yet teaches students to ignore it.
+SOURCES = $(wildcard src labs evals tests scripts)
+
 lint: venv
-	@$(PY) -m ruff check src labs evals tests scripts
+	@$(PY) -m ruff check $(SOURCES)
 
 format: venv
-	@$(PY) -m ruff format src labs evals tests scripts
-	@$(PY) -m ruff check --fix src labs evals tests scripts
+	@$(PY) -m ruff format $(SOURCES)
+	@$(PY) -m ruff check --fix $(SOURCES)
 
 check: lint test
 

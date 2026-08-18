@@ -24,7 +24,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from agno.agent import Agent  # noqa: E402
 
-from college_agent.config import describe_config, get_model  # noqa: E402
+from college_agent.config import (  # noqa: E402
+    MissingAPIKeyError,
+    check_api_key,
+    describe_config,
+    get_model,
+)
 from college_agent.tools import check_fee_status, lookup_student  # noqa: E402
 
 TICKET = (
@@ -60,11 +65,15 @@ agent = Agent(
 
 
 if __name__ == "__main__":
-    import os
-
-    if not os.getenv("GOOGLE_API_KEY", "").strip():
-        print("\nGOOGLE_API_KEY is not set. Run `make preflight` — it'll tell you how.\n")
-        raise SystemExit(1)
+    # Not `os.getenv("GOOGLE_API_KEY")`. That names one provider, and this
+    # repo supports two — a student with only an OpenAI key would be refused
+    # by a lab that was about to work fine. check_api_key() asks config.py,
+    # which knows which provider is selected and what its variable is called.
+    try:
+        check_api_key()
+    except MissingAPIKeyError as exc:
+        print(f"\n{exc}")
+        raise SystemExit(1) from None
 
     print(f"\n\033[1mThe same agent, with Agno\033[0m  \033[2m({describe_config()})\033[0m\n")
 
