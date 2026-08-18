@@ -75,6 +75,69 @@ module 3 will make more sense once they've built something in lab 2.
 
 ---
 
+## The hands-on half: the step branches
+
+The second two hours is a branch series. Students walk it with `git switch`,
+and there is a working, tested state at every point — nobody can fall
+irrecoverably behind.
+
+| # | Branch | Adds | Min |
+|---|---|---|---|
+| 1 | `step-1-agent` | model + instructions. No tools, no schema. | 10 |
+| 2 | `step-2-structured` | `output_schema=TriageResult` | 12 |
+| 3 | `step-3-tools` | six tools over the college DB | 25 |
+| 4 | `step-4-guardrails` | `pre_hooks` — PII, third-party refusal | 15 *flex* |
+| 5 | `step-5-team` | `TeamMode.route` + specialists | 15 *flex* |
+| 6 | `step-6-evals` | golden cases, reliability, break-it | 25 |
+| 7 | `step-7-deploy` | FastAPI, AgentOS, Docker, CI | 20 |
+
+**Core path (1, 2, 3, 6, 7) is ~92 minutes**, leaving nearly half an hour of
+slack. All seven is 122 — none. Cut steps 4 and 5 live if you're behind.
+
+### The move that makes it land
+
+```bash
+git diff step-2-structured step-3-tools -- src
+```
+
+The diff between two branches *is* the lesson — one concept, no noise. Put it
+on the projector rather than describing the change. `make diff` does the same
+thing for whichever step you're on, and `make step` prints where you are and
+what to run next.
+
+### Step 2 is the one to slow down for
+
+The order looks wrong on purpose. At step 2 the agent has a strict schema but
+no tools, so it returns a perfectly validated `TriageResult` that is entirely
+**invented** — right shape, wrong department, confident reasoning, no evidence.
+
+Run it twice in front of the room and let them see it disagree with itself.
+Then ask what the schema actually bought. Structure gives you parseability, not
+truth — and it makes a wrong answer look considerably more authoritative than
+prose did. Step 3 fixes it, and the contrast is the whole point.
+
+Don't rush past it to get to the tools.
+
+### What `labs/` is for now
+
+The lab scripts are **your demo material for the theory half** — run them on the
+projector while teaching each module. They are not student homework any more;
+the branch series is. Running both would have them competing for the same two
+hours.
+
+### If a student is lost
+
+```bash
+git switch step-3-tools    # a clean, working copy of any step
+git checkout .             # throw away local edits, keep the step
+git switch main            # the finished app
+```
+
+Every branch passes `make test` with no API key, so "is my checkout broken?"
+always has a fast answer.
+
+---
+
 ## Checkpoints
 
 Stop and check the room at each of these. Don't let a broken setup compound.
