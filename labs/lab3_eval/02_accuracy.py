@@ -42,8 +42,9 @@ from rich.console import Console  # noqa: E402
 from rich.table import Table  # noqa: E402
 
 from cases import CASES  # noqa: E402
-from college_agent.agent import build_triage_agent  # noqa: E402
+from college_agent.agent import build_triage_agent, run_triage  # noqa: E402
 from college_agent.config import describe_config, get_model  # noqa: E402
+from college_agent.guardrails import TicketBlocked  # noqa: E402
 
 console = Console()
 
@@ -68,7 +69,22 @@ def main() -> None:
 
     for case in CASES:
         with console.status(f"[dim]{case.name}…[/dim]"):
-            result = agent.run(case.ticket).content
+            try:
+                result = run_triage(agent, case.ticket)
+            except TicketBlocked:
+                # A guardrail refused it before the model ran. For a case that
+                # expects escalation that is the *right* answer, and a stronger
+                # one than the model agreeing to escalate: it cannot do
+                # otherwise. Score it and move on.
+                exact_hits += case.expected_needs_human
+                judge_hits += case.expected_needs_human
+                table.add_row(
+                    case.name,
+                    "[magenta]blocked[/magenta]",
+                    "[magenta]pre-model[/magenta]",
+                    "[green]pass[/green]" if case.expected_needs_human else "[red]fail[/red]",
+                )
+                continue
 
             # --- exact match: free and objective ---------------------------
             dept_ok = result.department == case.expected_department

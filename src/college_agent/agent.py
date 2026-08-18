@@ -14,6 +14,7 @@ top of those four. If you understand this file, you understand agents.
 from __future__ import annotations
 
 from agno.agent import Agent
+from pydantic import ValidationError
 
 from .config import get_model
 from .guardrails import default_guardrails, enforce
@@ -123,6 +124,51 @@ def build_triage_agent(
     )
 
 
+def run_triage(agent, ticket: str) -> TriageResult:
+    """Run one ticket through `agent` and return a TriageResult. Never a string.
+
+    Use this instead of `agent.run(ticket).content` — everywhere.
+
+    `Agent.run()` does not have the return type you would expect. Its
+    `.content` is a `TriageResult` on the happy path, but a plain `str` when
+    a guardrail fires *or* when the model call fails, and those two are
+    indistinguishable from the RunOutput alone. Code that assumes the happy
+    path gets `AttributeError: 'str' object has no attribute 'department'`
+    at some unrelated line, which is a miserable thing to debug.
+
+    So this function does the narrowing in one place and hands back either a
+    real TriageResult or a typed exception:
+
+        TicketBlocked  a guardrail refused it   -> 403 at the edge
+        RuntimeError   the run failed           -> 502 at the edge
+
+    Args:
+        agent: A triage agent, or a Team — both work, and `enforce` runs
+            regardless of whether the thing you pass has its own pre_hooks.
+        ticket: What the student wrote.
+    """
+    # Explicit check first, so a refusal is a typed exception rather than
+    # something we have to reverse-engineer out of a RunOutput.
+    enforce(ticket)
+
+    result = agent.run(ticket).content
+
+    if isinstance(result, str):
+        # Some paths hand back the right JSON as *text* rather than a parsed
+        # model — a Team whose leader answers directly is the one you'll meet
+        # here, but providers do it too. If it validates, take it; the contract
+        # is satisfied even though the plumbing was lazy about it.
+        try:
+            return TriageResult.model_validate_json(result)
+        except ValidationError:
+            pass
+
+    if not isinstance(result, TriageResult):
+        raise RuntimeError(f"The agent did not return a TriageResult: {str(result)[:300]}")
+
+    return result
+
+
 # A ready-built agent for the labs and the API to import. Built lazily so that
 # merely importing this module doesn't demand an API key — the tests need to
 # import it without one.
@@ -147,25 +193,7 @@ def triage(message: str, student_id: str = "") -> TriageResult:
         student_id: Roll number, if the portal already knows who is asking.
     """
     prompt = message if not student_id else f"[Ticket from {student_id}]\n\n{message}"
-
-    # Check before dispatching. The agent has the same guardrails on its
-    # pre_hooks, but Agno swallows those into a RunOutput that is
-    # indistinguishable from a model failure — so the service layer checks
-    # explicitly to get an exception it can actually act on. See
-    # guardrails.enforce for the full reasoning.
-    enforce(prompt)
-
-    result = triage_agent().run(prompt).content
-
-    # A failed run (bad key, rate limit, refused schema) comes back with the
-    # error message as a plain string rather than a TriageResult. Returning
-    # that would sail past this function and blow up in FastAPI's response
-    # validation as a 500 - a server error for what is usually a provider
-    # problem. Fail here instead, where the caller can classify it.
-    if not isinstance(result, TriageResult):
-        raise RuntimeError(f"The agent did not return a TriageResult: {str(result)[:300]}")
-
-    return result
+    return run_triage(triage_agent(), prompt)
 
 
 if __name__ == "__main__":

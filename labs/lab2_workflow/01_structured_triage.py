@@ -26,8 +26,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from rich.console import Console  # noqa: E402
 from rich.table import Table  # noqa: E402
 
-from college_agent.agent import build_triage_agent  # noqa: E402
+from college_agent.agent import build_triage_agent, run_triage  # noqa: E402
 from college_agent.config import describe_config  # noqa: E402
+from college_agent.guardrails import TicketBlocked  # noqa: E402
 
 console = Console()
 
@@ -81,9 +82,26 @@ def main() -> None:
     table.add_column("Human?", ratio=1)
     table.add_column("Summary", ratio=3, overflow="fold")
 
+    blocked = 0
+
     for ticket in TICKETS:
         with console.status(f"[dim]triaging: {ticket[:50]}…[/dim]"):
-            result = agent.run(ticket).content
+            try:
+                # run_triage, not agent.run(...).content — see the docstring in
+                # agent.py. A guardrail refusal and a model failure both come
+                # back as a plain string otherwise, and you find out several
+                # lines later with an unhelpful AttributeError.
+                result = run_triage(agent, ticket)
+            except TicketBlocked as refusal:
+                blocked += 1
+                table.add_row(
+                    ticket,
+                    "[magenta]BLOCKED[/magenta]",
+                    "[dim]—[/dim]",
+                    "[yellow]yes[/yellow]",
+                    f"[magenta]Refused before the model ran.[/magenta] [dim]{refusal}[/dim]",
+                )
+                continue
 
         table.add_row(
             ticket,
@@ -94,6 +112,12 @@ def main() -> None:
         )
 
     console.print(table)
+
+    if blocked:
+        console.print(
+            f"\n  [magenta]{blocked} of {len(TICKETS)} tickets never reached the model.[/magenta]"
+            "  [dim]Zero tokens, zero quota, zero chance of a wrong answer.[/dim]"
+        )
 
     console.print(
         "\n[dim]"
@@ -109,9 +133,12 @@ def main() -> None:
         "  · Ticket 3 is an attendance problem, not a fees problem.\n"
         "  · Ticket 4 must not reveal a waiting-list position — the hostel\n"
         "    policy forbids it.\n"
-        "  · Tickets 5 and 6 must both set needs_human=true. A refund moves\n"
-        "    money; the last one is someone asking about a student who isn't\n"
-        "    them.\n"
+        "  · Ticket 5 must set needs_human=true — a refund moves money.\n"
+        "  · Ticket 6 never got that far. A guardrail refused it outright,\n"
+        "    because it is someone asking about a student who isn't them.\n"
+        "    The agent is *also* instructed to refuse that — but an\n"
+        "    instruction is advice and a guardrail is a rule, and a rule is\n"
+        "    what you want protecting somebody's exam results.\n"
         "\n"
         "Did it get them all? Run it twice — does it get the same answers?\n"
         "That question is what module 3 exists to answer properly.\n"

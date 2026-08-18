@@ -38,7 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from rich.console import Console  # noqa: E402
 
-from college_agent.agent import build_triage_agent  # noqa: E402
+from college_agent.agent import build_triage_agent, run_triage  # noqa: E402
 from college_agent.config import describe_config  # noqa: E402
 from college_agent.team import build_triage_team  # noqa: E402
 
@@ -70,14 +70,16 @@ def main() -> None:
     # --- one agent, six tools --------------------------------------------
     agent = build_triage_agent()
     start = time.perf_counter()
-    single = agent.run(TICKET).content
+    single = run_triage(agent, TICKET)
     single_time = time.perf_counter() - start
     show("Single agent", single, single_time)
 
     # --- router + three specialists --------------------------------------
     team = build_triage_team()
     start = time.perf_counter()
-    routed = team.run(TICKET).content
+    # run_triage takes a Team just as happily as an Agent, and applies the
+    # guardrails at the call site — the specialists have none of their own.
+    routed = run_triage(team, TICKET)
     team_time = time.perf_counter() - start
     show("Routing team", routed, team_time)
 

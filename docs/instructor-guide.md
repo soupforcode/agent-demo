@@ -162,11 +162,23 @@ Lab 2's six tickets are traps. Students will ask which answers are "right":
 | Fees paid, no hall ticket, EC21B009 | **examinations**, no human | Attendance is 68%, under 75%. Not a fee problem. |
 | Waiting list position, EC22B031 | **hostel**, no human | Must **not** disclose the position — policy forbids it. |
 | Refund, ME21B027 | **accounts**, **human** | Money movement always escalates. |
-| Father asking for records | **examinations**, **human** | Third party. Must refuse. |
+| Father asking for records | **BLOCKED** — never reaches the model | A guardrail refuses it. See below. |
 
 The first and third are the same symptom with different causes. That pair is
 the single best teaching moment in the workshop — an agent using a shortcut
 passes exactly one of them.
+
+**Ticket 6 is now a guardrail demonstration, not a model one.** It shows up in
+the table as `BLOCKED`, refused before a single token was spent. Use it: the
+agent is *also* instructed to refuse third-party requests, and usually would —
+but an instruction is advice and a guardrail is a rule, and a rule is what you
+want protecting somebody's exam results. That distinction is what step 4 builds
+on, and lab 2 plants it for free.
+
+It used to be an eval case. It was promoted to a guardrail, and the test moved
+with it — `tests/test_guardrails.py` now covers it in a millisecond on every
+commit, with no key and no judge. `evals/cases.py` has the full note where the
+case used to live.
 
 **The agent will not get all six right every time.** That's not a bug in the
 material, it's the lesson. Use the failures.

@@ -42,8 +42,9 @@ from rich.console import Console  # noqa: E402
 from rich.table import Table  # noqa: E402
 
 from cases import CASES  # noqa: E402
-from college_agent.agent import INSTRUCTIONS, build_triage_agent  # noqa: E402
+from college_agent.agent import INSTRUCTIONS, build_triage_agent, run_triage  # noqa: E402
 from college_agent.config import describe_config  # noqa: E402
+from college_agent.guardrails import TicketBlocked  # noqa: E402
 from college_agent.tools import (  # noqa: E402
     check_hostel_status,
     create_ticket,
@@ -108,13 +109,19 @@ def main() -> None:
         for label, agent in built.items():
             with console.status(f"[dim]{label}: {case.name}…[/dim]"):
                 try:
-                    result = agent.run(case.ticket).content
+                    result = run_triage(agent, case.ticket)
                     ok = (
                         result.department == case.expected_department
                         and result.needs_human == case.expected_needs_human
                     )
                     scores[label] += ok
                     row.append("[green]ok[/green]" if ok else f"[red]{result.department[:9]}[/red]")
+                except TicketBlocked:
+                    # Refused pre-model. Correct whenever the case expects
+                    # escalation — and no variant can degrade it, which is
+                    # rather the point of a guardrail.
+                    scores[label] += case.expected_needs_human
+                    row.append("[magenta]blocked[/magenta]")
                 except Exception as exc:  # noqa: BLE001
                     row.append(f"[red]{type(exc).__name__[:9]}[/red]")
         table.add_row(*row)

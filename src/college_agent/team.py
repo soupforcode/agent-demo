@@ -159,6 +159,10 @@ def build_triage_team(model_id: str | None = None, *, debug: bool = False) -> Te
         # The specialist's TriageResult is the answer. Don't let the leader
         # paraphrase a validated object back into prose.
         respond_directly=True,
+        # The members each have this, but the team needs it too: if the leader
+        # ever answers directly instead of delegating, its content is raw text
+        # and nothing parses it into the contract.
+        output_schema=TriageResult,
         show_members_responses=debug,
         debug_mode=debug,
     )

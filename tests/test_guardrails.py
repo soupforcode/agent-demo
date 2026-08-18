@@ -195,3 +195,57 @@ class TestAPIStatusCodes:
         )
         assert r.status_code == 502
         assert "records" not in r.json()["detail"].lower()
+
+
+class TestNobodyBypassesRunTriage:
+    """A regression guard for the bug that shipped in this file's first version.
+
+    Adding `pre_hooks` changed what `agent.run().content` returns: a
+    `TriageResult` normally, a plain `str` when a guardrail fires or the model
+    fails. Every existing caller assumed the first, and only one of them got
+    fixed — so `make lab2` died with
+
+        AttributeError: 'str' object has no attribute 'department'
+
+    `run_triage()` in agent.py is now the single place that narrows the type.
+    This test fails if anyone reintroduces a direct call, which is a much
+    kinder way to find out than a crash mid-workshop.
+    """
+
+    def _sources(self):
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[1]
+        for folder in ("labs", "evals"):
+            yield from (root / folder).rglob("*.py")
+
+    def test_no_lab_or_eval_calls_run_content_directly(self):
+        import re
+
+        # `.run(...).content` on an agent or team, in one expression.
+        pattern = re.compile(r"\b(agent|team|\w*_agent)\.run\([^)]*\)\.content")
+
+        offenders = []
+        for path in self._sources():
+            for lineno, line in enumerate(path.read_text().splitlines(), 1):
+                if line.lstrip().startswith("#"):
+                    continue  # comments explaining the trap are fine
+                if pattern.search(line):
+                    offenders.append(f"{path.name}:{lineno}")
+
+        assert not offenders, (
+            "These call agent.run(...).content directly, which returns a str "
+            "when a guardrail fires or the model fails:\n  "
+            + "\n  ".join(offenders)
+            + "\n\nUse run_triage(agent, ticket) from college_agent.agent instead."
+        )
+
+    def test_run_triage_is_the_narrowing_point(self):
+        """It must return a TriageResult or raise — never hand back a string."""
+        import inspect
+
+        from college_agent.agent import run_triage
+
+        source = inspect.getsource(run_triage)
+        assert "isinstance(result, TriageResult)" in source
+        assert "enforce(" in source
