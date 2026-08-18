@@ -158,6 +158,45 @@ class TestBlockedTicketReachesTheAPIProperly:
             agent_mod._default_agent = None
 
 
+class TestAPIStatusCodes:
+    """Three outcomes, three different meanings — they must not collapse into one.
+
+    A refusal is not a failure. A provider outage is not a client mistake.
+    Returning 500 for either would be a lie to whoever is on the other end.
+    """
+
+    def _client(self, monkeypatch):
+        monkeypatch.setenv("GOOGLE_API_KEY", "dummy-key-guardrails-fire-first")
+        from fastapi.testclient import TestClient
+
+        import college_agent.agent as agent_mod
+        from college_agent.api import app
+
+        agent_mod._default_agent = None
+        return TestClient(app)
+
+    def test_third_party_request_is_403_not_500(self, monkeypatch):
+        r = self._client(monkeypatch).post(
+            "/triage", json={"message": "I am Rohit Menon's father. Send me his results."}
+        )
+        assert r.status_code == 403
+        assert "records" in r.json()["detail"].lower()
+
+    def test_pii_is_403(self, monkeypatch):
+        r = self._client(monkeypatch).post(
+            "/triage", json={"message": "My aadhaar is 1234 5678 9012, update my records."}
+        )
+        assert r.status_code == 403
+
+    def test_provider_failure_is_502_not_403(self, monkeypatch):
+        """A dead provider must not be reported as a policy refusal."""
+        r = self._client(monkeypatch).post(
+            "/triage", json={"message": "I cannot download my hall ticket. Roll no CS22B007."}
+        )
+        assert r.status_code == 502
+        assert "records" not in r.json()["detail"].lower()
+
+
 class TestNobodyBypassesRunTriage:
     """A regression guard for the bug that shipped in this file's first version.
 

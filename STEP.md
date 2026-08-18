@@ -1,28 +1,29 @@
 
-  STEP 6 of 7 — Proving it works
+  STEP 7 of 7 — Shipping it
 
-  New here:  Ten golden cases, tool-call reliability, and a deliberate sabotage.
-  Run:       make lab3
+  New here:  A FastAPI service, AgentOS mounted onto it, a Dockerfile and CI.
+  Run:       make lab4
 
-  Next:      git switch step-7-deploy
+  Next:      nothing — this is the finished app (same as main)
 
 ---
 
-# Step 6 — Proving it works
+# Step 7 — Shipping it
 
-**Ten golden cases, tool-call reliability, and a deliberate sabotage.**
+**A FastAPI service, AgentOS mounted onto it, a Dockerfile and CI.**
 
 ## What to look at
 
-- Reliability first: did it look things up, or get lucky? That check
-- is free and deterministic, and catches what accuracy scoring cannot.
-- Then break the agent on purpose. If the score does not move, your
-- eval suite is decoration.
+- /health never calls the model — a health check that costs an API
+- request reports your provider being down as you being down.
+- The service starts with no API key and reports itself degraded
+- rather than crash-looping.
+- Three outcomes, three codes: 403 refused, 502 provider down, 200 ok.
 
 ## Commands
 
 ```bash
-make lab3
+make lab4
 make test        # the tests that exist at this step, no API key needed
 make diff        # exactly what this step changed vs the previous one
 make step        # this summary again
@@ -31,7 +32,7 @@ make step        # this summary again
 ## Where this came from
 
 ```bash
-git diff step-5-team step-6-evals -- src
+git diff step-6-evals step-7-deploy -- src
 ```
 
 That diff is the lesson. Everything else is unchanged.
@@ -42,6 +43,6 @@ Nothing here is precious. If you break something:
 
 ```bash
 git checkout .                  # undo your edits, keep the step
-git switch step-6-evals    # or jump back to a clean copy
+git switch step-7-deploy    # or jump back to a clean copy
 git switch main                 # or straight to the finished app
 ```
