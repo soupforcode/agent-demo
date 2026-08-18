@@ -9,15 +9,22 @@
 Exit code is 0 when everything passes and non-zero when it doesn't, which is
 what lets CI use this as a gate rather than as decoration.
 
-Two checks per case
--------------------
+Three checks per case, in increasing order of unreliability
+----------------------------------------------------------
 **Tool calls** — did it look things up, or did it guess? Deterministic, free,
 no judge involved. An agent that gets the right department without ever
 checking the student's record got lucky, and luck doesn't survive a rewording.
 
+**Fields** — `department` and `needs_human`, compared with `==`. Also
+deterministic, also free. See `evals/scorer.py`; these used to be handed to the
+judge as a sentence of English, which was a mistake and is a good story.
+
 **Criteria** — an LLM judge reads the answer against a written standard. This
-catches everything a field comparison can't: did it refuse to disclose the
-waiting list position, did it avoid promising a refund.
+catches what neither of the above can: did it refuse to disclose the waiting
+list position, did it avoid promising a refund.
+
+Notice the order. Each check is cheaper, faster and more certain than the one
+after it, and every assertion you can move upwards is one that stops flaking.
 
 The judge is not an oracle
 --------------------------
@@ -43,6 +50,7 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 sys.path.insert(0, str(REPO_ROOT / "evals"))
 
 from agno.eval import Case, JudgeMode, cli  # noqa: E402
+from scorer import TriageFieldScorer  # noqa: E402
 
 from cases import CASES  # noqa: E402
 from college_agent.agent import build_triage_agent  # noqa: E402
@@ -65,16 +73,19 @@ def build_cases(model_id: str | None = None) -> tuple[Case, ...]:
             # Pinning the exact sequence makes the eval brittle without making
             # it stricter in any way that matters.
             allow_additional_tool_calls=True,
+            # --- the exact half ---
+            # department and needs_human are a Literal and a bool. They get
+            # compared with `==`, in-process, for free. This used to be part of
+            # the criteria string below, which meant asking a language model
+            # whether True was True — see evals/scorer.py for what that cost us.
+            scorer=TriageFieldScorer(),
+            expected=c,
             # --- the judged half ---
-            criteria=(
-                f"{c.criteria} "
-                f"The ticket should be routed to the '{c.expected_department}' department"
-                + (
-                    " and flagged as needing a human."
-                    if c.expected_needs_human
-                    else " and should NOT need a human."
-                )
-            ),
+            # Only what is genuinely prose-shaped survives here: did it refuse
+            # to disclose the waiting list position, did it avoid promising a
+            # refund. A judge with less to weigh is a judge that disagrees with
+            # you less often.
+            criteria=c.criteria or None,
             judge_mode=JudgeMode.BINARY,
             timeout_seconds=90,
         )

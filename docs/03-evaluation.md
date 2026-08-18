@@ -71,6 +71,9 @@ Catches what fields can't. Costs an API call per case, and is itself fallible.
 Use both: exact match for everything expressible as a field, a judge only for
 what genuinely isn't.
 
+That rule is easy to write and easy to quietly break. This repo broke it, in
+this suite, and paid for it twice — see [Where judges let you down](#where-judges-let-you-down).
+
 ### 3. Cost — what did it take?
 
 Latency and tokens. An agent that's 5% more accurate and three times slower may
@@ -128,21 +131,67 @@ object. The judge took `promise` and `approve` on their own, detached them from
 fully paid" as an unsupported claim, when both came from tool calls in the same
 run.
 
-Two things to take from it:
+So we rewrote the criteria to name observables — no amount, no percentage, no
+claim of approval — and listed what was explicitly allowed. Sound reasoning.
 
-- **Write criteria as observables, not judgements.** "Does not approve" asks
-  the judge to interpret. "Does not state a rupee amount or percentage, and
-  does not say the refund is approved or granted" asks it to look. The second
-  is checkable; the first is an invitation to reason.
-- **Say what is explicitly allowed.** This is the part people skip. Left
-  unstated, a judge derives new prohibitions from the ones you wrote — here,
-  "don't approve it" quietly became "don't mention approval at all". The fixed
-  criterion ends by naming citing policy, reporting the fee record, and
-  recommending a named officer as correct.
+**It failed again on the very next run.**
 
-The failure was in the *dataset*, not the agent — the same conclusion module 2's
-base-rate story reaches by a different route. When an eval fails, the claim it
-encodes is a suspect too.
+> agent: "Refunds require Accounts Officer approval and **cannot be granted**
+> automatically."
+>
+> judge: FAIL — "the criteria say the output should avoid any language that
+> says the refund is approved, granted, or guaranteed."
+
+Read those twice. The agent produced the safest sentence available to it — a
+flat statement that the refund is *not* automatic — and was failed for
+containing the word "granted". The judge matched the token and missed the
+"cannot" in front of it.
+
+That is the lesson, and it is not the one we started with:
+
+**A list of forbidden words teaches a judge to search for those words.** Not
+for their meaning, not for their polarity — for the strings. It is a language
+model, and pattern-matching is what it does when the task gets hard. Our
+carefully-written prohibition was itself the thing causing the false negative.
+
+The fix inverts what the judge goes looking for. The criteria now open with
+*"This case PASSES by default"*, name a short list of things that would earn a
+FAIL, and finish with "judge what the sentence means, not whether it contains
+the words 'approved' or 'granted'."
+
+### The bigger mistake underneath
+
+Both failures were on `needs_human`-adjacent reasoning, and here is the thing
+we should have noticed the first time:
+
+**`needs_human` is a `bool`. We were asking a language model whether `True`
+was `True`.**
+
+Every case was pasting its expected department and escalation flag into an
+English sentence and handing it to the judge. A `Literal` and a `bool` — the
+two most exactly checkable things in the entire schema — routed through the
+least reliable component in the suite.
+
+They now live in `evals/scorer.py`, compared with `==`. Free, instant, and
+incapable of having an opinion. What is left for the judge is what actually
+needs reading: did it refuse to disclose the waiting list position, did it
+avoid promising a refund.
+
+Order your checks by how much they can let you down:
+
+| Check | Cost | Certainty |
+|---|---|---|
+| tool calls fired | free | exact |
+| `department`, `needs_human` | free | exact |
+| written criteria | a model call | an opinion |
+
+**Every assertion you move up that table is one that stops flaking.** Reach for
+a judge only for the assertions you cannot write any other way — an LLM in your
+test suite is a dependency with a failure rate.
+
+And note where the blame landed both times: in the *dataset*, not the agent.
+Same conclusion module 2's base-rate story reaches by a different route. When
+an eval fails, the claim it encodes is a suspect too.
 
 ---
 

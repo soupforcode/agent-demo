@@ -243,7 +243,7 @@ generate it from memory.
 Everything except the live model calls still works:
 
 ```bash
-make test      # 67 tests, no API key
+make test      # 134 tests, no API key
 ```
 
 The tools, the schema guards, the service behaviour and the eval harness all

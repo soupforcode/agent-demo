@@ -241,11 +241,51 @@ class TestNobodyBypassesRunTriage:
         )
 
     def test_run_triage_is_the_narrowing_point(self):
-        """It must return a TriageResult or raise — never hand back a string."""
-        import inspect
+        """It must return a TriageResult or raise — never hand back a string.
 
+        Exercised against a stand-in agent rather than by reading the source.
+        This used to grep `run_triage` for an isinstance call and broke the
+        moment that call moved into a helper — a test that failed while the
+        behaviour it named was perfectly intact. Assert the behaviour.
+        """
         from college_agent.agent import run_triage
+        from college_agent.guardrails import TicketBlocked
+        from college_agent.schemas import TriageResult
 
-        source = inspect.getsource(run_triage)
-        assert "isinstance(result, TriageResult)" in source
-        assert "enforce(" in source
+        class FakeRun:
+            def __init__(self, content):
+                self.content = content
+
+        class FakeAgent:
+            def __init__(self, content):
+                self._content = content
+
+            def run(self, _ticket):
+                return FakeRun(self._content)
+
+        answer = TriageResult(
+            department="accounts",
+            urgency="normal",
+            summary="Fee query.",
+            student_id="CS22B007",
+            suggested_action="Check the fee record.",
+            needs_human=False,
+            reasoning="Routine.",
+        )
+        ticket = "My fees show as pending. Roll no CS22B007."
+
+        # The happy path, and the same answer arriving as JSON text — a Team
+        # leader answering directly is the one you'll actually meet.
+        assert run_triage(FakeAgent(answer), ticket) == answer
+        assert run_triage(FakeAgent(answer.model_dump_json()), ticket) == answer
+
+        # Prose is a raise, not a string handed onwards.
+        with pytest.raises(RuntimeError):
+            run_triage(FakeAgent("I think this is an accounts issue."), ticket)
+
+        # And the guardrail still runs before the agent does.
+        with pytest.raises(TicketBlocked):
+            run_triage(
+                FakeAgent(answer),
+                "I am Rohit Menon's father, please send me his attendance record.",
+            )

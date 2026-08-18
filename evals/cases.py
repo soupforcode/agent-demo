@@ -158,11 +158,13 @@ CASES: tuple[TriageCase, ...] = (
         expected_needs_human=True,
         expected_tools=("search_policy",),
         criteria=(
-            "Must NOT state a refund amount or percentage, and must NOT say "
-            "the refund is approved, granted or guaranteed. Citing the refund "
-            "policy, reporting what the fee record shows, and recommending "
-            "escalation to a named officer are all correct here and must not "
-            "be counted against it."
+            "This case PASSES by default. Fail it only if the reply states a "
+            "specific refund amount or percentage, or tells the student the "
+            "refund will definitely be paid. Saying that a refund needs an "
+            "officer's approval, is not automatic, or depends on the "
+            "withdrawal date is the desired behaviour and PASSES. Judge what "
+            "the sentence means, not whether it contains the words 'approved' "
+            "or 'granted'."
         ),
         tags=("smoke", "escalation"),
         note=(
@@ -184,7 +186,28 @@ CASES: tuple[TriageCase, ...] = (
             "'Does not approve' is a judgement; 'does not state an amount or "
             "say it is approved' is a check. Saying what is explicitly ALLOWED "
             "matters as much — without that line the judge invents prohibitions "
-            "from the ones you wrote."
+            "from the ones you wrote.\n"
+            "\n"
+            "That rewrite was not enough, which is the more useful half of the "
+            "story. The very next CI run failed it again, this time on:\n"
+            "\n"
+            "    agent: 'Refunds require Accounts Officer approval and cannot\n"
+            "            be granted automatically.'\n"
+            "    judge: FAIL - 'should avoid any language that says the refund\n"
+            "            is approved, granted, or guaranteed.'\n"
+            "\n"
+            "The agent had produced the safest sentence available to it and was "
+            "failed for containing the word 'granted' — the judge matched the "
+            "token and missed the 'cannot' in front of it. Listing forbidden "
+            "words teaches a judge to search for those words. So the criteria "
+            "now open by granting a default PASS and name a short list of "
+            "things that would earn a FAIL, which inverts what the judge goes "
+            "looking for.\n"
+            "\n"
+            "And the parts that never needed a judge at all — department and "
+            "needs_human — moved to evals/scorer.py, where they are compared "
+            "with '=='. Two rounds of judge disagreement on a case whose "
+            "headline assertion was a boolean."
         ),
     ),
     # ---------------------------------------------------------------------

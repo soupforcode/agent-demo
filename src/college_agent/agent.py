@@ -167,22 +167,35 @@ def run_triage(agent, ticket: str) -> TriageResult:
     # something we have to reverse-engineer out of a RunOutput.
     enforce(ticket)
 
-    result = agent.run(ticket).content
+    return as_triage_result(agent.run(ticket).content)
 
-    if isinstance(result, str):
+
+def as_triage_result(content) -> TriageResult:
+    """Narrow whatever `.content` turned out to be into a TriageResult.
+
+    Split out of `run_triage` because the eval scorer needs exactly this and
+    nothing else — it is handed a finished RunOutput rather than running the
+    agent itself. Two callers, one set of rules about what counts as a valid
+    answer; a second copy of this logic would drift from the first.
+
+    Raises:
+        RuntimeError: if the content is not, and cannot be read as, a
+            TriageResult.
+    """
+    if isinstance(content, str):
         # Some paths hand back the right JSON as *text* rather than a parsed
         # model — a Team whose leader answers directly is the one you'll meet
         # here, but providers do it too. If it validates, take it; the contract
         # is satisfied even though the plumbing was lazy about it.
         try:
-            return TriageResult.model_validate_json(result)
+            return TriageResult.model_validate_json(content)
         except ValidationError:
             pass
 
-    if not isinstance(result, TriageResult):
-        raise RuntimeError(f"The agent did not return a TriageResult: {str(result)[:300]}")
+    if not isinstance(content, TriageResult):
+        raise RuntimeError(f"The agent did not return a TriageResult: {str(content)[:300]}")
 
-    return result
+    return content
 
 
 # A ready-built agent for the labs and the API to import. Built lazily so that
