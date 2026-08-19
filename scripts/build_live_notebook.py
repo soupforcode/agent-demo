@@ -432,7 +432,11 @@ agent_v1 = Agent(model=get_model(), instructions=INSTRUCTIONS)
 
 TICKET = "I can't download my hall ticket, the portal shows an error. My exam is on Monday. Roll no CS22B007."
 
-agent_v1.print_response(TICKET)
+# run() + print, not agent.print_response(). print_response draws a live,
+# self-refreshing panel with rich, and Colab's output does not support the
+# cursor movement that needs — you get the spinner and the Message box, and
+# the answer never appears. Looks like a hang; is a rendering bug.
+print(agent_v1.run(TICKET).content)
 """)
 
 md("""
@@ -449,6 +453,17 @@ Two separate problems, and the next two steps fix one each:
 |---|---|
 | The answer is prose, so no system can use it | Step 2 |
 | The answer is invented, so nobody should trust it | Step 3 |
+
+> ### One Colab gotcha, before you go exploring
+>
+> Agno's docs mostly show `agent.print_response(...)`, and it is lovely in a
+> terminal. **It does not work in Colab.** It draws a self-refreshing panel
+> with `rich.Live`, which needs cursor movement that Colab's output does not
+> support — so you get the spinner and the Message box, and the answer never
+> arrives. It looks exactly like a hang. It is not; the call usually finished.
+>
+> Use `agent.run(...)` and print the result, as above. Every cell in this
+> notebook does.
 """)
 
 # ==========================================================================
