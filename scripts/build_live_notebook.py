@@ -792,16 +792,31 @@ def search_policy(query: str) -> str:
         query: What you want to know, e.g. "refund on withdrawal".
     """
     words = [w for w in query.lower().split() if len(w) > 3]
-    hits = []
+    scored = []
     for doc, text in KB.items():
         for section in text.split("\\n## "):
-            score = sum(section.lower().count(w) for w in words)
-            if score:
-                hits.append((score, doc, section.strip()[:700]))
-    if not hits:
-        return f"Nothing in the policy documents matches {query!r}. Do not invent a policy."
-    hits.sort(reverse=True)
-    return "\\n\\n---\\n\\n".join(f"[{doc}]\\n{text}" for _, doc, text in hits[:3])
+            low = section.lower()
+            count = sum(low.count(w) for w in words)
+            distinct = sum(1 for w in words if w in low)
+            if count:
+                scored.append((count, distinct, doc, section.strip()[:700]))
+
+    # A relevance floor, and it matters more than it looks. Without it every
+    # query returns SOMETHING - ask about emotional support animals and you
+    # get the routing table back, because "support" appears in it. Confidently
+    # returning irrelevant text is worse than returning nothing, because the
+    # agent will reason over whatever you hand it.
+    # Two distinct terms, or one that actually recurs. Either is evidence the
+    # section is ABOUT the query; a single passing mention is not.
+    keep = [x for x in scored if x[1] >= 2 or x[0] >= 2]
+
+    if not keep:
+        return (
+            f"Nothing in the policy documents matches {query!r}. "
+            "Do not invent a policy - say the answer is not documented."
+        )
+    keep.sort(reverse=True)
+    return "\\n\\n---\\n\\n".join(f"[{doc}]\\n{text}" for _, _, doc, text in keep[:3])
 
 
 DEPARTMENTS = ["accounts", "hostel", "examinations", "admissions", "it_support"]
@@ -952,6 +967,89 @@ code("""
 # Put the world back before continuing.
 FEES["CS22B007"], EXAMS["CS22B007"] = before
 print("restored:", check_exam_status("CS22B007"))
+""")
+
+md("""
+## Where the answer isn't in the records
+
+Everything so far was settled by looking a student up. Plenty of tickets are
+not: *"how long does a bonafide certificate take?"*, *"can I still get my
+paper rechecked?"* — the answer is in a **policy document**, and the records
+have nothing to say about it.
+
+This is the other half of grounding, and the failure mode is worse. A model
+asked about a rule it does not know will produce a confident, plausible,
+completely invented rule. Nobody in the room can tell the difference, because
+invented policies sound exactly like real ones.
+
+First, look at the retrieval on its own — no agent, no model:
+""")
+
+code("""
+print(search_policy("re-evaluation deadline"))
+""")
+
+md("""
+That text came out of `KB`, which came from the repo's markdown. **No model
+was involved in producing it.** That is the point of a retrieval step: the
+words the agent is about to reason over are words a human wrote and can audit.
+
+Now a ticket that can only be answered from that policy. Note what it needs:
+find the rule, notice that "three weeks ago" is more than fifteen days, and
+conclude that a late request is somebody's decision to make.
+""")
+
+code("""
+POLICY_TICKET = (
+    "My results came out three weeks ago and I want my Data Structures paper "
+    "rechecked. Roll no CS23B044."
+)
+
+run = agent_v3.run(POLICY_TICKET)
+print("tools called:", [t.tool_name for t in (run.tools or [])], "\\n")
+for field in ("department", "needs_human", "suggested_action", "reasoning"):
+    print(f"  {field:<18} {getattr(run.content, field)}")
+""")
+
+md("""
+Check three things in that output:
+
+1. **`search_policy` is in the tool list.** If it is not, the agent answered a
+   policy question from memory and you should not believe a word of it — even
+   if the answer happens to be right.
+2. **The reasoning mentions fifteen days.** That number exists in exactly one
+   place, `kb/examinations.md`, and it got there by retrieval.
+3. **`needs_human` is true.** Not because the topic sounds serious, but
+   because the policy says a late request needs the Controller's written
+   approval — and the agent had to do the arithmetic to know the request *is*
+   late. Deadline arithmetic is something models are genuinely unreliable at,
+   which is worth knowing before you rely on one.
+
+### The more useful half: what happens when the policy isn't there
+
+An agent that invents a plausible rule is far more dangerous than one that
+says it does not know. `search_policy` returns a refusal rather than an empty
+string, and the instructions tell the agent not to answer policy questions
+from memory.
+""")
+
+code("""
+print(search_policy("emotional support animals in hostels"))
+""")
+
+md("""
+> **Try it, and this is the good one:** edit `kb/` in memory and watch the
+> answer follow. The KB is just a dict of strings.
+>
+> ```python
+> KB["examinations"] = KB["examinations"].replace("fifteen days", "sixty days")
+> agent_v3.run(POLICY_TICKET).content.needs_human   # still true?
+> ```
+>
+> If the agent now says the request is *inside* the window, it genuinely read
+> your policy. If it still says fifteen days, it is reciting something it
+> learned in training and your retrieval is decorative — which is a failure
+> mode real RAG systems have all the time, and almost nobody checks for.
 """)
 
 # ==========================================================================
