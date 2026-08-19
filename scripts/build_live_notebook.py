@@ -194,18 +194,221 @@ print(type(get_model()).__name__)
 ''')
 
 # ==========================================================================
+# Step 0 — the raw loop
+# ==========================================================================
+md("""
+---
+# Step 0 — What an agent actually is
+*No framework. No Agno. A `while` loop and about twenty lines.*
+
+Before we use a framework, write the thing by hand once. The whole idea is
+smaller than the hype:
+
+> **An agent is a loop that calls a language model, and when the model asks to
+> run a function, runs it, hands back the result, and calls the model again.**
+
+That is it. Memory, teams, workflows, planning — all of it is built on top of
+that loop. Once you have seen it written out, frameworks stop being magic and
+become what they are: a way to avoid writing this every time.
+
+**The one sentence to take away:** the model never runs your code. It only
+*asks* you to, by name, with arguments. Your code decides whether to comply.
+That is the security model, and most people have never had it stated plainly.
+
+First, two toy tools and three students — just enough to make the loop do
+something. The real six arrive at step 3.
+""")
+
+code("""
+MINI = {
+    "CS22B007": dict(name="Priya Nair", due=88000, paid=0, status="blocked"),
+    "CS21B014": dict(name="Rohit Menon", due=92000, paid=92000, status="pending"),
+    "EC21B009": dict(name="Sneha Iyer", due=92000, paid=92000, status="paid"),
+}
+
+
+def get_student(roll_no: str) -> str:
+    s = MINI.get(roll_no.strip().upper())
+    return f"{roll_no}: {s['name']}." if s else f"No student {roll_no!r}."
+
+
+def get_fees(roll_no: str) -> str:
+    s = MINI.get(roll_no.strip().upper())
+    if not s:
+        return f"No fee record for {roll_no!r}."
+    owed = s["due"] - s["paid"]
+    extra = " FEE-BLOCKED: hall tickets are withheld." if s["status"] == "blocked" else ""
+    return f"{roll_no}: owes Rs.{owed:,}, status {s['status']}.{extra}"
+
+
+IMPLEMENTATIONS = {"get_student": get_student, "get_fees": get_fees}
+
+# What the model is TOLD it can call. Note this is data, not code — the model
+# receives a description and answers with a name and some arguments. It has no
+# reach into this process at all.
+SCHEMAS = [
+    {
+        "name": "get_student",
+        "description": "Look up a student by roll number.",
+        "parameters": {
+            "type": "object",
+            "properties": {"roll_no": {"type": "string", "description": "e.g. CS22B007"}},
+            "required": ["roll_no"],
+        },
+    },
+    {
+        "name": "get_fees",
+        "description": "Check what a student owes and whether they are fee-blocked.",
+        "parameters": {
+            "type": "object",
+            "properties": {"roll_no": {"type": "string", "description": "e.g. CS22B007"}},
+            "required": ["roll_no"],
+        },
+    },
+]
+
+SYSTEM = "You triage college admin tickets. Look up the student's records before answering."
+MAX_TURNS = 5
+print("2 tools,", len(MINI), "students")
+""")
+
+md("""
+### The loop
+
+Written twice, because the two SDKs disagree about almost every noun:
+
+| | Gemini | OpenAI |
+|---|---|---|
+| the model's request | `part.function_call` | `message.tool_calls` |
+| your reply | a `user` turn of function responses | one `tool` message per call |
+| arguments arrive as | a dict | a JSON **string** you must parse |
+
+Same twenty lines, different vocabulary. **That difference is the entire
+business case for a framework** — and in step 1 you will watch Agno collapse
+both of these into one line.
+""")
+
+code("""
+import json
+
+
+def raw_loop_google(question: str) -> str:
+    from google import genai  # `from google import genai` — NOT google.generativeai
+    from google.genai import types
+
+    client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
+    config = types.GenerateContentConfig(
+        system_instruction=SYSTEM,
+        tools=[types.Tool(function_declarations=SCHEMAS)],
+        # The SDK will happily run your functions for you. We switch that off,
+        # because doing it by hand is the entire point of this cell.
+        automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+        temperature=0.1,
+    )
+
+    # THE CONVERSATION. This list is the agent's entire memory. Watch it grow.
+    contents = [types.Content(role="user", parts=[types.Part(text=question)])]
+
+    for turn in range(1, MAX_TURNS + 1):
+        print(f"-- turn {turn}: sending {len(contents)} message(s)")
+        reply = client.models.generate_content(model="gemini-3.5-flash-lite", contents=contents, config=config)
+        parts = reply.candidates[0].content.parts or []
+        calls = [p.function_call for p in parts if p.function_call]
+
+        if not calls:  # no tool calls == the model is done. The exit condition.
+            print("   model is done")
+            return reply.text or "(nothing)"
+
+        contents.append(reply.candidates[0].content)  # or it forgets it asked
+        results = []
+        for call in calls:
+            args = dict(call.args or {})
+            print(f"   model wants: {call.name}({json.dumps(args)})")
+            fn = IMPLEMENTATIONS.get(call.name)
+            out = fn(**args) if fn else f"ERROR: no such tool {call.name!r}."
+            print(f"   tool says:   {out[:90]}")
+            results.append(types.Part.from_function_response(name=call.name, response={"result": out}))
+        contents.append(types.Content(role="user", parts=results))
+
+    return f"Gave up after {MAX_TURNS} turns."
+
+
+def raw_loop_openai(question: str) -> str:
+    from openai import OpenAI
+
+    client = OpenAI()
+    tools = [{"type": "function", "function": s} for s in SCHEMAS]
+    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": question}]
+
+    for turn in range(1, MAX_TURNS + 1):
+        print(f"-- turn {turn}: sending {len(messages)} message(s)")
+        reply = client.chat.completions.create(
+            model="gpt-5.4-mini", messages=messages, tools=tools, temperature=0.1
+        )
+        msg = reply.choices[0].message
+
+        if not msg.tool_calls:
+            print("   model is done")
+            return msg.content or "(nothing)"
+
+        messages.append(msg)
+        for call in msg.tool_calls:
+            args = json.loads(call.function.arguments)  # a STRING here, not a dict
+            print(f"   model wants: {call.function.name}({json.dumps(args)})")
+            fn = IMPLEMENTATIONS.get(call.function.name)
+            out = fn(**args) if fn else f"ERROR: no such tool {call.function.name!r}."
+            print(f"   tool says:   {out[:90]}")
+            messages.append({"role": "tool", "tool_call_id": call.id, "content": out})
+
+    return f"Gave up after {MAX_TURNS} turns."
+
+
+raw_loop = raw_loop_google if PROVIDER == "google" else raw_loop_openai
+
+QUESTION = "Why can't CS22B007 download her hall ticket?"
+print(f"[{PROVIDER}] {QUESTION}\\n")
+print("\\nANSWER:", raw_loop(QUESTION))
+""")
+
+md("""
+Read the turn markers. The first call sends one message and comes back asking
+for a tool. You run it, append the result, and call again with three messages.
+The model answers from what you gave it.
+
+Four things in those twenty lines that every framework is quietly doing for
+you, and which you now know are there:
+
+1. **The conversation is a list you own.** Nothing is remembered for you. That
+   list *is* the agent's memory, and every turn makes it longer — which is why
+   a long agent run gets slower and dearer as it goes.
+2. **`MAX_TURNS` is not a nicety.** Without it a confused agent loops until
+   your quota is gone. Frameworks call this `tool_call_limit`.
+3. **A hallucinated tool name is normal.** Tell the model rather than crashing
+   and it usually recovers.
+4. **One question cost several model calls.** Budget 5–15 per ticket, not one.
+   This is the number people get wrong when estimating cost.
+
+> **Try it:** set `MAX_TURNS = 1` and re-run. Then delete `get_fees` from
+> `IMPLEMENTATIONS` but leave it in `SCHEMAS`, and watch the model ask for a
+> tool that no longer exists.
+
+Now — everything from here on is that loop, with the plumbing hidden.
+""")
+
+# ==========================================================================
 # Step 1 — an agent
 # ==========================================================================
 md("""
 ---
 # Step 1 — An agent
-*Confidence: total. Evidence: none.*
+*The same loop, with the plumbing hidden.*
 
-An agent is a for-loop around a language model. Say that out loud once and
-most of the mystique goes away.
+Everything you just wrote by hand — the message list, the tool dispatch, the
+turn limit, the provider's particular vocabulary — is what the next three
+lines replace.
 
-This one has a model and instructions. No tools, no schema, no memory. It
-cannot look anything up. Watch what it does anyway.
+This agent has a model and instructions and nothing else. No tools, no schema.
+It cannot look anything up. Watch what it does anyway.
 """)
 
 code("""
@@ -801,22 +1004,35 @@ def enforce(text):
         g.check(RunInput(input_content=text))
 
 
-def triage(text):
-    """The ONLY way to run this agent. Returns a TriageResult or raises.
+def as_result(content):
+    """Narrow whatever `.content` turned out to be into a TriageResult.
 
-    Read the note below for why this exists. `agent.run(...).content` is a
-    TriageResult on a good day and a plain `str` on a bad one, and the two are
-    indistinguishable until something downstream says
+    `.content` is a TriageResult on a good day and a plain `str` on a bad one,
+    and the two are indistinguishable until something downstream says
 
         AttributeError: 'str' object has no attribute 'department'
 
-    at a line that has nothing to do with the cause.
+    at a line that has nothing to do with the cause. One place decides what
+    counts as a valid answer, so nobody has to remember to check.
     """
+    if isinstance(content, str):
+        # Some paths hand back the right JSON as *text* — a Team leader
+        # answering directly is the one you will actually meet. If it
+        # validates, take it; the contract is satisfied even though the
+        # plumbing was lazy about it.
+        try:
+            return TriageResult.model_validate_json(content)
+        except Exception:
+            pass
+    if not isinstance(content, TriageResult):
+        raise RuntimeError(f"Not a TriageResult: {str(content)[:200]}")
+    return content
+
+
+def triage(text):
+    """The ONLY way to run this agent. Returns a TriageResult or raises."""
     enforce(text)
-    out = agent_v4.run(text).content
-    if not isinstance(out, TriageResult):
-        raise RuntimeError(f"Agent did not return a TriageResult: {str(out)[:200]}")
-    return out
+    return as_result(agent_v4.run(text).content)
 
 
 FATHER = "I am Rohit Menon's father. Please send me his attendance record and exam results."
@@ -910,8 +1126,10 @@ team = Team(
 
 import time
 
-t0 = time.time(); solo = agent_v3.run(TICKET).content; solo_s = time.time() - t0
-t1 = time.time(); grp = team.run(TICKET).content; grp_s = time.time() - t1
+# as_result(), not .content — a routing leader is the single most likely
+# thing in this notebook to hand you the right JSON as a plain string.
+t0 = time.time(); solo = as_result(agent_v3.run(TICKET).content); solo_s = time.time() - t0
+t1 = time.time(); grp = as_result(team.run(TICKET).content); grp_s = time.time() - t1
 
 print(f"single agent  {solo.department:<14} {solo_s:.1f}s")
 print(f"routing team  {grp.department:<14} {grp_s:.1f}s")
@@ -1006,7 +1224,7 @@ def evaluate(agent, cases=CASES):
     rows, passed = [], 0
     for c in cases:
         run = agent.run(c["ticket"])
-        got = run.content
+        got = as_result(run.content)
         called = [t.tool_name for t in (run.tools or [])]
 
         ok_dept = got.department == c["department"]

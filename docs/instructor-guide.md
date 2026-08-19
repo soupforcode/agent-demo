@@ -85,11 +85,20 @@ irrecoverably behind.
 **They walk it in Colab.** Two notebooks, and the choice matters:
 
 - **`notebooks/workshop.ipynb`** — the default. Every line of the agent is a
-  cell they can edit. The set piece is in step 3: clear CS22B007's fee block,
-  re-run the identical ticket, watch it route to examinations instead. Nothing
-  about the prompt changed; the world did, and the agent noticed. You cannot
-  do that from a slide, and it is the moment the room understands what
-  "grounded in tools" actually means.
+  cell they can edit. Two set pieces:
+
+  **Step 0** is lab 1's raw loop — the agent by hand, no framework, about
+  twenty lines. It is written twice, once per SDK, because Gemini and OpenAI
+  disagree about every noun in it. Do not skip this to save time. A room that
+  has seen the loop treats Agno as a convenience; a room that has not treats
+  it as magic, and stays stuck there all afternoon.
+
+  **Step 3** is the experiment: clear CS22B007's fee block, drop her
+  attendance, re-run the identical ticket, and it routes to examinations
+  instead. The cell prints the tool's answer either side of the change as well
+  as the agent's, so the room sees ground truth move first. Nothing about the
+  prompt changed; the world did, and the agent noticed. You cannot do that
+  from a slide.
 - **`notebooks/workshop_branches.ipynb`** — drives the seven `step-*` branches
   with `git switch` and `git diff`. Use it if this group would get more from
   seeing a real project layout than from experimenting. It is also the honest
