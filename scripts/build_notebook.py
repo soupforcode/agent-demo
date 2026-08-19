@@ -152,7 +152,10 @@ A minute or two. Good time to go and get your API key if you haven't.
     out.append(
         code(
             f"""
-!git clone -q {REPO_URL} {CLONE}
+# Safe to re-run. "Runtime -> Restart session" clears the Python kernel but
+# NOT /content, so the clone survives a restart — and an unguarded clone would
+# greet you with a red "fatal: destination path already exists" for no reason.
+![ -d {CLONE} ] || git clone -q {REPO_URL} {CLONE}
 %cd {CLONE}
 %pip install -q -e ".[dev]"
 !python -m college_agent.data.seed
