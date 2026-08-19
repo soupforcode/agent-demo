@@ -99,6 +99,16 @@ irrecoverably behind.
   as the agent's, so the room sees ground truth move first. Nothing about the
   prompt changed; the world did, and the agent noticed. You cannot do that
   from a slide.
+
+  **Step 6 has a third one you should rehearse**, because its outcome is not
+  guaranteed: the same eval against a deliberately older, cheaper model. It
+  tries a list of candidate IDs and uses the first that still resolves, so a
+  retired model degrades into a message rather than a traceback. Run it once
+  with your own key beforehand and find out which of the three outcomes you
+  get — scores worse, cannot hold the schema at all, or matches the strong
+  model. **All three are good teaching**, but you want to know which speech
+  you are giving. If it matches, the line is "then stop paying for the
+  expensive one, and note that you could only ever know that by measuring."
 - **`notebooks/workshop_branches.ipynb`** — drives the seven `step-*` branches
   with `git switch` and `git diff`. Use it if this group would get more from
   seeing a real project layout than from experimenting. It is also the honest

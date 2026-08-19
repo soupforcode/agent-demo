@@ -168,8 +168,12 @@ from agno.models.google import Gemini
 from agno.models.openai import OpenAIChat
 
 
-def get_model(temperature: float = 0.1, max_tokens: int = 2048):
-    """The only place in this notebook that builds a model."""
+def get_model(temperature: float = 0.1, max_tokens: int = 2048, model_id: str = ""):
+    """The only place in this notebook that builds a model.
+
+    `model_id` overrides the default. Step 6 uses it to run the same eval
+    against a deliberately weaker model.
+    """
     shared = dict(
         temperature=temperature,
         # An agent loop is 5-15 calls back to back. Against a free-tier
@@ -184,10 +188,10 @@ def get_model(temperature: float = 0.1, max_tokens: int = 2048):
     if PROVIDER == "google":
         # flash-lite: cheapest, fastest, most generous free limits. The binding
         # constraint here is requests per minute, not intelligence.
-        return Gemini(id="gemini-3.5-flash-lite", max_output_tokens=max_tokens, **shared)
+        return Gemini(id=model_id or "gemini-3.5-flash-lite", max_output_tokens=max_tokens, **shared)
     # The one place the SDKs genuinely disagree: max_output_tokens vs
     # max_completion_tokens. Same idea, different spelling.
-    return OpenAIChat(id="gpt-5.4-mini", max_completion_tokens=max_tokens, **shared)
+    return OpenAIChat(id=model_id or "gpt-5.4-mini", max_completion_tokens=max_tokens, **shared)
 
 
 print(type(get_model()).__name__)
@@ -1282,6 +1286,93 @@ suite is not measuring what you think it is — and *that* is the finding.
 >
 > Try it: add *"most tickets do not need a human"* to the instructions and
 > re-run the eval.
+""")
+
+md("""
+### The other axis: a weaker model
+
+You just degraded the *prompt*. The other thing people reach for is a
+*cheaper model* — usually to save money, sometimes without measuring what it
+costs them.
+
+Same eval, same tools, same instructions. Only the model changes.
+
+> **This may not fail.** Nobody can tell you in advance whether a smaller
+> model is good enough for *your* task — that is the entire reason you built
+> the eval. If the weak model matches the strong one here, you have learned
+> something worth more than a dramatic demo: this task does not need the
+> expensive model, and you can stop paying for it.
+""")
+
+code("""
+# Older, smaller, cheaper. Model IDs get retired — the cell tries these in
+# order and uses the first one the provider still answers on.
+CANDIDATES = {
+    "google": ["gemini-2.5-flash-lite", "gemini-2.0-flash-lite", "gemini-2.0-flash"],
+    "openai": ["gpt-4o-mini", "gpt-3.5-turbo"],
+}[PROVIDER]
+
+
+def weak_agent():
+    for candidate in CANDIDATES:
+        try:
+            # Probe with a BARE agent - no schema, no tools. Asking a weak
+            # model for a TriageResult here would fail validation and get a
+            # perfectly available model written off as retired.
+            Agent(model=get_model(model_id=candidate)).run("Say ok")
+        except Exception as exc:
+            print(f"  {candidate}: unavailable ({str(exc)[:70]})")
+            continue
+
+        print(f"using {candidate}\\n")
+        return Agent(
+            model=get_model(model_id=candidate),
+            instructions=INSTRUCTIONS_V3,
+            tools=TOOLS,
+            output_schema=TriageResult,
+            tool_call_limit=10,
+            add_datetime_to_context=True,
+        )
+    return None
+
+
+weak = weak_agent()
+
+if weak is None:
+    print("\\nNo weaker model available. Pick one from your provider's model list")
+    print("and add it to CANDIDATES - the comparison is worth doing.")
+else:
+    try:
+        score = evaluate(weak)
+        print(f"\\nweak model {score}/{len(CASES)}   vs   strong model 5/5 above")
+    except RuntimeError as exc:
+        # A model too weak to hold the schema at all. That IS the result.
+        print(f"\\nIt could not produce a valid TriageResult at all:\\n  {exc}")
+        print("\\nThat is not a crash, it is the finding. Structured output is a")
+        print("capability, not a given, and it is the first thing to go.")
+""")
+
+md("""
+Three things can happen there, and each teaches something different:
+
+**It scores worse.** The usual outcome, and look at *how* it fails. Weak models
+mostly do not fail by reasoning badly — they fail by **not looking**. Watch the
+`tools` column: an agent that skips `check_exam_status` and answers from the
+words in the ticket is guessing, and the reliability check catches that even
+when the guess happens to be right.
+
+**It cannot produce the schema at all.** Structured output is a capability, not
+a given, and on small models it is the first thing to go. You will get a clean
+`RuntimeError` from `as_result()` rather than a mystery, which is the payoff
+for having written that function in step 4.
+
+**It matches the strong model.** Then stop paying for the expensive one. This
+is the outcome nobody demos and everybody should want — and you can only ever
+know it by measuring.
+
+> The general shape: **pick the cheapest model that passes your evals, not the
+> best model you can afford.** Those are different questions, and only one of
+> them has an answer you can check.
 """)
 
 # ==========================================================================
