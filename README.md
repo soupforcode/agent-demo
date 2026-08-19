@@ -19,9 +19,26 @@ deployed HTTP service. Not a toy.
 
 ---
 
+## The hands-on half runs in Colab — nothing to install
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/soupforcode/agent-demo/blob/main/notebooks/workshop.ipynb)
+
+No Python, no `uv`, no `make`, no WSL. Works the same on Windows, macOS and a
+borrowed laptop. All you need is a free Gemini API key.
+
+The notebook walks the seven-step branch series below, showing you the diff
+between each step before it runs anything.
+
+**Prefer to work locally?** Everything below still applies — but note the
+Makefile is POSIX-only, so on Windows you need WSL or Git Bash with `make`
+installed separately.
+
+---
+
 ## Before the workshop (do this a week early — it takes 10 minutes)
 
-You need a free Gemini API key. Do **not** leave this to the day.
+You need a free Gemini API key. Do **not** leave this to the day. (On Colab
+this is the *only* thing you need.)
 
 1. **Get a key** — go to <https://aistudio.google.com/apikey>, sign in with any
    Google account, click *Create API key*. No credit card required.

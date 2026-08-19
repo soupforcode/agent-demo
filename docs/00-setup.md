@@ -9,6 +9,26 @@ thing. None of that is interesting to debug in a room with a clock running.
 
 ---
 
+## The easy path: Colab
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/soupforcode/agent-demo/blob/main/notebooks/workshop.ipynb)
+
+Open that, and setup is finished. No Python install, no `uv`, no `make`, no
+WSL — it runs in the browser and works identically on Windows, macOS and
+Linux. **This is the recommended path**, and the only thing you still need
+from this page is an API key (section 1 below).
+
+Everything after section 1 is for running locally instead, which you are very
+welcome to do.
+
+> **Local setup on Windows:** the `Makefile` is POSIX-only, and `make` ships
+> with neither Windows nor Git Bash. You would need WSL (`wsl --install` in an
+> admin PowerShell, then follow the Linux steps unchanged), or Git Bash with
+> `make` installed separately. If that sounds like an evening you would rather
+> not have, use Colab.
+
+---
+
 ## Which provider?
 
 This workshop uses **Google Gemini** by default, because it has a free tier and

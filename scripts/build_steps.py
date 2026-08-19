@@ -58,6 +58,7 @@ STEPS = [
         "agent": "agent_step1.py",
         "new": "A model, some instructions, and nothing else. No tools, no schema.",
         "run": "python -m college_agent.agent",
+        "colab": ["python -m college_agent.agent"],
         "look": [
             "It answers in prose — readable, but no system can route on it.",
             "It has no way to look up CS22B007, so anything it says about that",
@@ -71,6 +72,7 @@ STEPS = [
         "agent": "agent_step2.py",
         "new": "output_schema=TriageResult — one parameter.",
         "run": "python -m college_agent.agent",
+        "colab": ["python -m college_agent.agent"],
         "look": [
             "You now get a validated object you could route, count and test.",
             "It is also still invented — the agent has no tools yet. Structure",
@@ -92,6 +94,7 @@ STEPS = [
         "agent": "main-no-guardrails",
         "new": "Six tools over the college database, and the agent that uses them.",
         "run": "make lab2",
+        "colab": ["python labs/lab2_workflow/01_structured_triage.py"],
         "look": [
             "Now it looks things up. The hall-ticket ticket should route to",
             "accounts, not examinations — the block is unpaid fees, and only",
@@ -106,6 +109,7 @@ STEPS = [
         "agent": "main",
         "new": "Checks that run before the model — PII, and third-party record requests.",
         "run": "make test",
+        "colab": ["python -m pytest -m 'not live' -q"],
         "look": [
             "An instruction is advice; a guardrail is a rule. The agent was",
             "already told to refuse third-party requests. Now it cannot comply",
@@ -124,6 +128,10 @@ STEPS = [
         "agent": "main",
         "new": "A router in front of three specialists.",
         "run": "make lab2",
+        "colab": [
+            "python labs/lab2_workflow/01_structured_triage.py",
+            "python labs/lab2_workflow/02_routing_team.py",
+        ],
         "look": [
             "This is a comparison, not an upgrade. The team roughly doubles",
             "your model calls — router, then specialist.",
@@ -143,6 +151,11 @@ STEPS = [
         "agent": "main",
         "new": "Ten golden cases, tool-call reliability, and a deliberate sabotage.",
         "run": "make lab3",
+        "colab": [
+            "python labs/lab3_eval/01_reliability.py",
+            "python labs/lab3_eval/02_accuracy.py",
+            "python labs/lab3_eval/03_break_it.py",
+        ],
         "look": [
             "Reliability first: did it look things up, or get lucky? That check",
             "is free and deterministic, and catches what accuracy scoring cannot.",
@@ -163,6 +176,7 @@ STEPS = [
         "agent": "main",
         "new": "A FastAPI service, AgentOS mounted onto it, a Dockerfile and CI.",
         "run": "make lab4",
+        "colab": ["python labs/lab4_deploy/01_call_the_api.py"],
         "look": [
             "/health never calls the model — a health check that costs an API",
             "request reports your provider being down as you being down.",
