@@ -82,10 +82,18 @@ The second two hours is a branch series. Students walk it with `git switch`,
 and there is a working, tested state at every point — nobody can fall
 irrecoverably behind.
 
-**They walk it in Colab**, via `notebooks/workshop.ipynb` — one notebook that
-clones the repo, then does the `git switch` and `git diff` for each step and
-runs its command. The branch series is still the material; the notebook is how
-students touch it.
+**They walk it in Colab.** Two notebooks, and the choice matters:
+
+- **`notebooks/workshop.ipynb`** — the default. Every line of the agent is a
+  cell they can edit. The set piece is in step 3: clear CS22B007's fee block,
+  re-run the identical ticket, watch it route to examinations instead. Nothing
+  about the prompt changed; the world did, and the agent noticed. You cannot
+  do that from a slide, and it is the moment the room understands what
+  "grounded in tools" actually means.
+- **`notebooks/workshop_branches.ipynb`** — drives the seven `step-*` branches
+  with `git switch` and `git diff`. Use it if this group would get more from
+  seeing a real project layout than from experimenting. It is also the honest
+  answer to "how would I structure this at work?"
 
 That decision is about Windows. The `Makefile` is POSIX-only and `make` ships
 with neither Windows nor Git Bash, so a Windows student cannot reach

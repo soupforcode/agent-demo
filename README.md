@@ -27,8 +27,22 @@ No Python, no `uv`, no `make`, no WSL. Works the same on Windows, macOS and a
 borrowed laptop. All you need is an API key — a free Gemini one, or an
 OpenAI key if you already have credits. The notebook takes either.
 
-The notebook walks the seven-step branch series below, showing you the diff
-between each step before it runs anything.
+**Every line of the agent is a cell you can edit** — the instructions, the
+schema, the six tools, the guardrails, the test cases. Change a student's fee
+record, re-run, and watch the same ticket route to a different department.
+That experiment is the reason it is a notebook.
+
+<details>
+<summary><b>There is a second notebook, if you want the repo itself</b></summary>
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/soupforcode/agent-demo/blob/main/notebooks/workshop_branches.ipynb)
+
+`notebooks/workshop_branches.ipynb` drives the seven `step-*` branches with
+`git switch` and `git diff` instead of holding the code inline. Same journey,
+real file layout, real tests. Better for *"what does this look like in a
+project?"*; worse for experimenting, because editing means editing files.
+
+</details>
 
 **Prefer to work locally?** Everything below still applies — but note the
 Makefile is POSIX-only, so on Windows you need WSL or Git Bash with `make`

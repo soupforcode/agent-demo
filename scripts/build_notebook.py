@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate notebooks/workshop.ipynb — the hands-on half, in Google Colab.
+"""Generate notebooks/workshop_branches.ipynb — the branch series, in Colab.
 
     python scripts/build_notebook.py
 
@@ -44,7 +44,7 @@ from build_steps import STEPS  # noqa: E402
 
 REPO_URL = "https://github.com/soupforcode/agent-demo.git"
 CLONE = "/content/agent-demo"
-OUT = Path(__file__).resolve().parents[1] / "notebooks" / "workshop.ipynb"
+OUT = Path(__file__).resolve().parents[1] / "notebooks" / "workshop_branches.ipynb"
 
 
 # What the full diff cell shows.

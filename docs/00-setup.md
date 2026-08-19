@@ -20,6 +20,15 @@ from this page is an API key (section 1 below) — Gemini or OpenAI, the
 notebook reads whichever you put in Colab's secrets panel, and prefers
 Gemini if you have both so the workshop cannot quietly cost you money.
 
+Every line of the agent is a cell you can edit there: the instructions, the
+schema, the six tools, the guardrails, the test cases. Step 3 has you change a
+student's fee record and watch the same ticket route somewhere else.
+
+There is a second notebook, `notebooks/workshop_branches.ipynb`, which drives
+the seven `step-*` branches with `git switch` and `git diff` rather than
+holding the code inline. Use that one if you want to see the real file
+layout.
+
 Everything after section 1 is for running locally instead, which you are very
 welcome to do.
 
