@@ -16,7 +16,9 @@ thing. None of that is interesting to debug in a room with a clock running.
 Open that, and setup is finished. No Python install, no `uv`, no `make`, no
 WSL — it runs in the browser and works identically on Windows, macOS and
 Linux. **This is the recommended path**, and the only thing you still need
-from this page is an API key (section 1 below).
+from this page is an API key (section 1 below) — Gemini or OpenAI, the
+notebook reads whichever you put in Colab's secrets panel, and prefers
+Gemini if you have both so the workshop cannot quietly cost you money.
 
 Everything after section 1 is for running locally instead, which you are very
 welcome to do.

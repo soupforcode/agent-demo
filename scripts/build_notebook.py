@@ -108,8 +108,16 @@ about a student it has never looked up. Fixing that is most of the workshop.
 Nothing to install. No Python, no `make`, no "works on my machine". It all
 runs here.
 
-**You need exactly one thing:** a Gemini API key. Free, no card, two minutes —
-<https://aistudio.google.com/apikey>
+**You need exactly one thing:** an API key.
+
+- **Gemini** — free, no card, two minutes: <https://aistudio.google.com/apikey>
+- **OpenAI** — works exactly the same, if you already have credits:
+  <https://platform.openai.com/api-keys>. No free tier, so it costs real money.
+
+Everything below is provider-agnostic. One line in `config.py` decides which
+one you get, and nothing else in the repo knows or cares — which is itself
+worth noticing, and is why adding OpenAI took one function rather than a
+rewrite.
 
 > ### Get your own key. Seriously.
 > Rate limits count per Google Cloud project, not per key. Thirty people on
@@ -183,8 +191,14 @@ is saved inside the notebook and goes wherever the notebook goes — which is a
 genuinely common way to publish a working key to the internet by accident.
 
 1. Click the **🔑 key icon** in the left sidebar.
-2. **+ Add new secret**, name it exactly `GOOGLE_API_KEY`.
+2. **+ Add new secret**, named for whichever provider you have:
+   - `GOOGLE_API_KEY` — Gemini. Free tier, no card. **Use this one.**
+   - `OPENAI_API_KEY` — works identically, but has no free tier and will
+     spend your credits.
 3. Paste your key as the value, and turn on **Notebook access**.
+
+Set both and Gemini wins, because the workshop should not cost you money by
+accident.
 
 > **It is `GOOGLE_API_KEY`, not `GEMINI_API_KEY`.** Google's own quickstart
 > tells you the second one. The framework only ever reads the first. This one
@@ -198,20 +212,40 @@ genuinely common way to publish a working key to the internet by accident.
             """
 import os
 
-try:
-    from google.colab import userdata
 
-    os.environ["GOOGLE_API_KEY"] = userdata.get("GOOGLE_API_KEY")
-except Exception:
-    # Not on Colab, or the secret is not set — ask for it without echoing.
+def secret(name):
+    # Read one Colab secret. Empty string if it is missing or not shared with
+    # this notebook, so the caller can just check truthiness.
+    try:
+        from google.colab import userdata
+
+        return (userdata.get(name) or "").strip()
+    except Exception:
+        # Not on Colab, secret absent, or notebook access not granted.
+        return ""
+
+
+google, openai = secret("GOOGLE_API_KEY"), secret("OPENAI_API_KEY")
+
+if google:
+    # Google first when both exist: it is the free tier, and nobody should
+    # discover they spent money by attending a workshop.
+    os.environ["COLLEGE_AGENT_PROVIDER"], os.environ["GOOGLE_API_KEY"] = "google", google
+elif openai:
+    os.environ["COLLEGE_AGENT_PROVIDER"], os.environ["OPENAI_API_KEY"] = "openai", openai
+else:
     import getpass
 
-    os.environ["GOOGLE_API_KEY"] = getpass.getpass("GOOGLE_API_KEY: ")
+    choice = input("Provider — google or openai? [google]: ").strip().lower() or "google"
+    var = "OPENAI_API_KEY" if choice == "openai" else "GOOGLE_API_KEY"
+    os.environ["COLLEGE_AGENT_PROVIDER"], os.environ[var] = choice, getpass.getpass(f"{var}: ")
 
-# The variable is GOOGLE_API_KEY, not GEMINI_API_KEY. Google's own quickstart
-# says the latter; the framework only reads the former. This costs people
-# twenty minutes roughly every time.
-print("key set:", bool(os.environ.get("GOOGLE_API_KEY", "").strip()))
+# One line of truth about what is actually configured. Every part of the repo
+# builds its model through this same config, so whatever it says here is what
+# the agent, the team and the eval judge will all use.
+from college_agent.config import describe_config
+
+print(describe_config())
 """
         )
     )

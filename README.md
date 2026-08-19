@@ -24,7 +24,8 @@ deployed HTTP service. Not a toy.
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/soupforcode/agent-demo/blob/main/notebooks/workshop.ipynb)
 
 No Python, no `uv`, no `make`, no WSL. Works the same on Windows, macOS and a
-borrowed laptop. All you need is a free Gemini API key.
+borrowed laptop. All you need is an API key — a free Gemini one, or an
+OpenAI key if you already have credits. The notebook takes either.
 
 The notebook walks the seven-step branch series below, showing you the diff
 between each step before it runs anything.
